@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Planner Pro</title>
+  <style>
+    /* Переменные тем */
+    :root {
+      --bg: #f9f9f9;
+      --text: #121212;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --primary: #4a6fa5;
+      --hover: #f0f0f0;
+      --muted: #888888;
+    }
+
+    [data-theme="dark"] {
+      --bg: #121212;
+      --text: #ffffff;
+      --surface: #1e1e1e;
+      --border: #333333;
+      --hover: #2a2a2a;
+      --muted: #888888;
+    }
+
+    body {
+      margin: 0; padding: 0;
+      background-color: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    /* Навигация */
+    .top-bar {
+      width: 100%; max-width: 800px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem 2rem; box-sizing: border-box;
+    }
+
+    .action-group {
+      display: flex; gap: 8px;
+    }
+
+    button {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem;
+      transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    button:hover { background: var(--hover); }
+
+    .date-display { font-size: 1.2rem; font-weight: 500; cursor: pointer; }
+
+    .container {
+      display: flex; flex-direction: column; align-items: center;
+      width: 100%; max-width: 800px; padding: 1rem 2rem; gap: 2rem; box-sizing: border-box;
+    }
+
+    /* Циферблат */
+    .clock-wrapper {
+      position: relative; width: 300px; height: 300px;
+      display: flex; justify-content: center; align-items: center;
+    }
+    canvas { position: absolute; top: 0; left: 0; }
+    
+    .clock-info { position: absolute; text-align: center; width: 180px; z-index: 10; }
+    .time-display { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.2rem; }
+    .task-display { font-size: 0.9rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Панели задач */
+    .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: 100%; gap: 1rem; }
+    .panel { background: var(--surface); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); }
+    .panel h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    
+    .task-item {
+      display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 0.9rem;
+      cursor: pointer; padding: 4px; border-radius: 6px;
+    }
+    .task-item:hover { background: var(--hover); }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+    .task-time { color: var(--muted); margin-right: 10px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
+    .task-duration { font-size: 0.75rem; opacity: 0.7; }
+
+    /* Модальные окна */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
+      display: none; justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal {
+      background: var(--bg); padding: 1.5rem; border-radius: 16px;
+      width: 90%; max-width: 350px; border: 1px solid var(--border);
+    }
+    .modal h3 { margin-top: 0; text-align: center; }
+
+    /* Календарь и мини-кольца */
+    .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+    .cal-day-name { font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+    
+    .cal-cell { 
+      position: relative; display: flex; justify-content: center; align-items: center;
+      height: 44px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; 
+    }
+    .cal-cell:hover { background: var(--hover); }
+    .cal-cell.empty { cursor: default; background: transparent !important; }
+    
+    .cal-num {
+      position: relative; z-index: 2;
+      width: 26px; height: 26px;
+      display: flex; justify-content: center; align-items: center;
+      border-radius: 50%;
+    }
+    .cal-cell.active .cal-num { background: var(--primary); color: white; font-weight: bold; }
+    
+    .cal-ring {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 38px; height: 38px; border-radius: 50%;
+      /* Маска для превращения круга в кольцо */
+      -webkit-mask: radial-gradient(transparent 60%, black 61%);
+      mask: radial-gradient(transparent 60%, black 61%);
+      opacity: 0.8; pointer-events: none; z-index: 1;
+    }
+
+    /* Форма задач */
+    .form-group { display: flex; flex-direction: column; margin-bottom: 1rem; }
+    .form-group label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .form-group input, .form-group select {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      padding: 0.5rem; border-radius: 6px; font-family: inherit;
+    }
+    .modal-actions { display: flex; justify-content: space-between; margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="action-group">
+      <button id="themeBtn" title="Сменить тему">🌓</button>
+      <button onclick="exportData()" title="Экспорт данных">💾</button>
+      <button onclick="document.getElementById('importFile').click()" title="Импорт данных">📂</button>
+      <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+    </div>
+    <div class="date-display" id="dateDisplay" onclick="openCalendar()">Загрузка...</div>
+    <button onclick="openTaskModal()">+ Задача</button>
+  </div>
+
+  <div class="container">
+    <div class="clock-wrapper">
+      <canvas id="clockCanvas" width="300" height="300"></canvas>
+      <div class="clock-info">
+        <div class="time-display" id="currentTime">00:00</div>
+        <div class="task-display" id="currentTask">Ожидание...</div>
+      </div>
+    </div>
+
+    <div class="panels">
+      <div class="panel" id="panel-general"><h2>Общий режим</h2><div class="task-list"></div></div>
+      <div class="panel" id="panel-day"><h2>План на день</h2><div class="task-list"></div></div>
+      <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
+    </div>
+  </div>
+
+  <!-- Модалки -->
+  <div class="modal-overlay" id="calModal" onclick="closeModals()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="cal-header">
+        <button onclick="changeMonth(-1)">❮</button>
+        <span id="calMonthYear">Месяц Год</span>
+        <button onclick="changeMonth(1)">❯</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="taskModal" onclick="closeModals()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3 id="modalTitle">Новая задача</h3>
+      <input type="hidden" id="taskId">
+      <div class="form-group">
+        <label>Название</label>
+        <input type="text" id="taskTitle" placeholder="Что будем делать?">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Начало</label><input type="time" id="taskStart" value="12:00">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Конец</label><input type="time" id="taskEnd" value="13:00">
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Категория</label>
+          <select id="taskType">
+            <option value="general">Общий режим</option>
+            <option value="day">План на день</option>
+            <option value="week">На неделю</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Цвет</label><input type="color" id="taskColor" value="#4a6fa5">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button onclick="deleteTask()" id="deleteBtn" style="color:#e07a5f; display:none;">Удалить</button>
+        <div style="flex:1"></div>
+        <button onclick="closeModals()" style="margin-right: 10px;">Отмена</button>
+        <button onclick="saveTask()" style="background: var(--primary); color: white;">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Тема ---
+    const root = document.documentElement;
+    const savedTheme = localStorage.getItem('planner_theme') || 'dark';
+    root.setAttribute('data-theme', savedTheme);
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const newTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', newTheme);
+      localStorage.setItem('planner_theme', newTheme);
+      drawClock();
+    });
+
+    // --- Структура Данных и Миграция ---
+    let currentDate = new Date();
+    let schedules = migrateData(JSON.parse(localStorage.getItem('planner_data')));
+
+    // Функция авто-миграции со старого формата на новый (с раздельными хранилищами)
+    function migrateData(rawData) {
+      if (!rawData) return { general: [], weeks: {}, days: {} };
+      if (rawData.general && rawData.weeks && rawData.days) return rawData;
+      
+      let newSchedules = { general: [], weeks: {}, days: {} };
+      for (let key in rawData) {
+        if (Array.isArray(rawData[key])) {
+          rawData[key].forEach(t => {
+            if (t.type === 'general') {
+              newSchedules.general.push(t);
+            } else if (t.type === 'week') {
+              let wKey = getWeekKey(new Date(key));
+              if(!newSchedules.weeks[wKey]) newSchedules.weeks[wKey] = [];
+              newSchedules.weeks[wKey].push(t);
+            } else {
+              if(!newSchedules.days[key]) newSchedules.days[key] = [];
+              newSchedules.days[key].push(t);
+            }
+          });
+        }
+      }
+      return newSchedules;
+    }
+
+    // --- Утилиты дат ---
+    function formatDateKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    // Получает ключ недели (понедельник текущей недели)
+    function getWeekKey(dateObj) {
+      let d = new Date(dateObj);
+      let day = d.getDay();
+      let diff = d.getDate() - day + (day == 0 ? -6 : 1);
+      d.setDate(diff);
+      return formatDateKey(d);
+    }
+
+    // Сбор всех задач (Общие + На неделю + На день) для конкретной даты
+    function getTasksForDate(date) {
+      const dateKey = formatDateKey(date);
+      const weekKey = getWeekKey(date);
+      let tasks = [];
+      
+      if (schedules.general) tasks = tasks.concat(schedules.general);
+      if (schedules.weeks[weekKey]) tasks = tasks.concat(schedules.weeks[weekKey]);
+      if (schedules.days[dateKey]) tasks = tasks.concat(schedules.days[dateKey]);
+      
+      return tasks;
+    }
+
+    function saveToMemory() {
+      localStorage.setItem('planner_data', JSON.stringify(schedules));
+      updateUI();
+    }
+
+    // --- Импорт / Экспорт ---
+    function exportData() {
+      const blob = new Blob([JSON.stringify(schedules, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = 'planner_data.json';
+      link.click(); URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          schedules = migrateData(JSON.parse(e.target.result));
+          saveToMemory();
+        } catch (err) { alert('Ошибка чтения файла.'); }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // --- Генерация CSS Градиента для Календаря ---
+    function buildConicGradient(tasks) {
+      let segments = [];
+      tasks.forEach(t => {
+        if (t.end < t.start) {
+          segments.push({ start: t.start, end: 24, color: t.color });
+          segments.push({ start: 0, end: t.end, color: t.color });
+        } else {
+          segments.push({ start: t.start, end: t.end, color: t.color });
+        }
+      });
+      segments.sort((a,b) => a.start - b.start);
+      
+      let str = "";
+      let currentAngle = 0;
+      
+      segments.forEach((seg, index) => {
+        const startDeg = (seg.start / 24) * 360;
+        const endDeg = (seg.end / 24) * 360;
+        
+        if (startDeg > currentAngle) {
+          str += `transparent ${currentAngle}deg ${startDeg}deg, `;
+        }
+        str += `${seg.color} ${startDeg}deg ${endDeg}deg${index === segments.length - 1 && endDeg === 360 ? '' : ', '}`;
+        currentAngle = endDeg;
+      });
+      
+      if (currentAngle < 360) str += `transparent ${currentAngle}deg 360deg`;
+      return str.replace(/,\s*$/, "");
+    }
+
+    // --- Календарь ---
+    let calDate = new Date();
+
+    function openCalendar() {
+      document.getElementById('calModal').style.display = 'flex';
+      renderCalendar();
+    }
+
+    function changeMonth(dir) {
+      calDate.setMonth(calDate.getMonth() + dir);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById('calGrid');
+      grid.innerHTML = '';
+      const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+      document.getElementById('calMonthYear').textContent = `${monthNames[calDate.getMonth()]} ${calDate.getFullYear()}`;
+
+      ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].forEach(d => {
+        const el = document.createElement('div');
+        el.className = 'cal-day-name'; el.textContent = d; grid.appendChild(el);
+      });
+
+      const firstDay = new Date(calDate.getFullYear(), calDate.getMonth(), 1);
+      const lastDay = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0);
+      let startOffset = firstDay.getDay() - 1;
+      if (startOffset === -1) startOffset = 6;
+
+      for (let i = 0; i < startOffset; i++) {
+        const el = document.createElement('div'); el.className = 'cal-cell empty'; grid.appendChild(el);
+      }
+
+      for (let i = 1; i <= lastDay.getDate(); i++) {
+        const el = document.createElement('div');
+        el.className = 'cal-cell';
+        
+        const numSpan = document.createElement('span');
+        numSpan.className = 'cal-num';
+        numSpan.textContent = i;
+        
+        if (i === currentDate.getDate() && calDate.getMonth() === currentDate.getMonth() && calDate.getFullYear() === currentDate.getFullYear()) {
+          el.classList.add('active');
+        }
+
+        const dayDate = new Date(calDate.getFullYear(), calDate.getMonth(), i);
+        const dayTasks = getTasksForDate(dayDate);
+
+        // Если есть задачи — рисуем мини-кольцо
+        if (dayTasks.length > 0) {
+          const ring = document.createElement('div');
+          ring.className = 'cal-ring';
+          ring.style.background = `conic-gradient(${buildConicGradient(dayTasks)})`;
+          el.appendChild(ring);
+        }
+
+        el.appendChild(numSpan);
+        el.onclick = () => {
+          currentDate = new Date(calDate.getFullYear(), calDate.getMonth(), i);
+          closeModals(); updateUI();
+        };
+        grid.appendChild(el);
+      }
+    }
+
+    // --- Модалки и Сохранение ---
+    function deleteTaskById(id) {
+      if(schedules.general) schedules.general = schedules.general.filter(t => t.id != id);
+      for(let w in schedules.weeks) schedules.weeks[w] = schedules.weeks[w].filter(t => t.id != id);
+      for(let d in schedules.days) schedules.days[d] = schedules.days[d].filter(t => t.id != id);
+    }
+
+    function openTaskModal(taskId = null) {
+      const modal = document.getElementById('taskModal');
+      const delBtn = document.getElementById('deleteBtn');
+      const tasks = getTasksForDate(currentDate);
+
+      if (taskId) {
+        const task = tasks.find(t => t.id === taskId);
+        document.getElementById('modalTitle').textContent = "Редактировать";
+        document.getElementById('taskId').value = task.id;
+        document.getElementById('taskTitle').value = task.title;
+        document.getElementById('taskStart').value = decToTime(task.start);
+        document.getElementById('taskEnd').value = decToTime(task.end);
+        document.getElementById('taskColor').value = task.color;
+        document.getElementById('taskType').value = task.type;
+        delBtn.style.display = 'block';
+      } else {
+        document.getElementById('modalTitle').textContent = "Новая задача";
+        document.getElementById('taskId').value = '';
+        document.getElementById('taskTitle').value = '';
+        delBtn.style.display = 'none';
+      }
+      modal.style.display = 'flex';
+    }
+
+    function saveTask() {
+      const id = document.getElementById('taskId').value || Date.now().toString();
+      const title = document.getElementById('taskTitle').value || "Без названия";
+      const start = timeToDec(document.getElementById('taskStart').value);
+      const end = timeToDec(document.getElementById('taskEnd').value);
+      const color = document.getElementById('taskColor').value;
+      const type = document.getElementById('taskType').value;
+      const newTask = { id, title, start, end, color, type };
+
+      // Удаляем из старой категории, чтобы избежать дублей при смене типа
+      deleteTaskById(id);
+
+      const dateKey = formatDateKey(currentDate);
+      const weekKey = getWeekKey(currentDate);
+
+      // Сохраняем в правильное хранилище
+      if (type === 'general') {
+        schedules.general.push(newTask);
+      } else if (type === 'week') {
+        if (!schedules.weeks[weekKey]) schedules.weeks[weekKey] = [];
+        schedules.weeks[weekKey].push(newTask);
+      } else {
+        if (!schedules.days[dateKey]) schedules.days[dateKey] = [];
+        schedules.days[dateKey].push(newTask);
+      }
+
+      closeModals(); saveToMemory();
+    }
+
+    function deleteTask() {
+      deleteTaskById(document.getElementById('taskId').value);
+      closeModals(); saveToMemory();
+    }
+
+    function closeModals() {
+      document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+    }
+
+    // --- Утилиты ---
+    function timeToDec(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number); return h + (m / 60);
+    }
+    function decToTime(dec) {
+      const h = Math.floor(dec); const m = Math.round((dec - h) * 60);
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    function getDurationText(start, end) {
+      let dur = end - start; if (dur < 0) dur += 24; 
+      const h = Math.floor(dur); const m = Math.round((dur - h) * 60);
+      if (h > 0 && m > 0) return `${h}ч ${m}м`;
+      if (h > 0) return `${h}ч`; return `${m}м`;
+    }
+
+    // --- Канвас и рендер ---
+    const canvas = document.getElementById('clockCanvas');
+    const ctx = canvas.getContext('2d');
+    const center = canvas.width / 2;
+    const radius = center - 30;
+
+    function drawClock() {
+      const tasks = getTasksForDate(currentDate);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const offset = -Math.PI / 2;
+
+      // Фоновое кольцо (стало темнее в светлой теме)
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, 2 * Math.PI);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#333" : "#aaaaaa";
+      ctx.stroke();
+
+      // Отрисовка задач
+      tasks.forEach(task => {
+        const startAngle = (task.start / 24) * 2 * Math.PI + offset;
+        const endAngle = (task.end / 24) * 2 * Math.PI + offset;
+
+        ctx.lineWidth = 14; ctx.strokeStyle = task.color; ctx.lineCap = "round";
+        ctx.beginPath();
+        if (task.end < task.start) {
+          ctx.arc(center, center, radius, startAngle, 2 * Math.PI + offset); ctx.stroke();
+          ctx.beginPath(); ctx.arc(center, center, radius, offset, endAngle); ctx.stroke();
+        } else {
+          ctx.arc(center, center, radius, startAngle, endAngle); ctx.stroke();
+        }
+      });
+
+      // Отрисовка разметки (добавлены 3, 9, 15, 21)
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * 2 * Math.PI + offset;
+        const isMain = i % 6 === 0;       // 0, 6, 12, 18
+        const isSub = i % 3 === 0 && !isMain; // 3, 9, 15, 21
+        
+        const tickStart = radius - 11;
+        const tickEnd = isMain ? radius - 18 : radius - 15;
+        
+        ctx.beginPath();
+        ctx.moveTo(center + Math.cos(angle) * tickStart, center + Math.sin(angle) * tickStart);
+        ctx.lineTo(center + Math.cos(angle) * tickEnd, center + Math.sin(angle) * tickEnd);
+        ctx.lineWidth = isMain ? 2 : 1;
+        ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#555" : "#ccc";
+        ctx.stroke();
+
+        // Отрисовка текста
+        if (isMain || isSub) {
+          const textDist = radius - 28;
+          const tx = center + Math.cos(angle) * textDist;
+          const ty = center + Math.sin(angle) * textDist;
+          
+          if (isMain) {
+            ctx.font = "14px -apple-system, sans-serif";
+            ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#ccc" : "#555";
+          } else {
+            ctx.font = "12px -apple-system, sans-serif";
+            ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#888" : "#999";
+          }
+          
+          ctx.fillText(i === 0 ? "0" : i.toString(), tx, ty);
+        }
+      }
+    }
+
+    function renderLists() {
+      const tasks = getTasksForDate(currentDate);
+      const panels = {
+        general: document.querySelector('#panel-general .task-list'),
+        day: document.querySelector('#panel-day .task-list'),
+        week: document.querySelector('#panel-week .task-list')
+      };
+
+      Object.values(panels).forEach(p => p.innerHTML = '');
+
+      tasks.sort((a, b) => a.start - b.start).forEach(task => {
+        const item = document.createElement('div');
+        item.className = 'task-item';
+        item.onclick = () => openTaskModal(task.id);
+        item.innerHTML = `
+          <div class="color-dot" style="background-color: ${task.color}"></div>
+          <div class="task-time">
+            ${decToTime(task.start)} - ${decToTime(task.end)}
+            <span class="task-duration">(${getDurationText(task.start, task.end)})</span>
+          </div>
+          <div class="task-title">${task.title}</div>
+        `;
+        panels[task.type].appendChild(item);
+      });
+    }
+
+    function updateClockInfo() {
+      const now = new Date();
+      const h = now.getHours(); const m = now.getMinutes();
+      document.getElementById('currentTime').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+      const isToday = formatDateKey(now) === formatDateKey(currentDate);
+      const taskDisplay = document.getElementById('currentTask');
+
+      if (!isToday) {
+        taskDisplay.textContent = "Просмотр графика"; taskDisplay.style.color = "var(--muted)"; return;
+      }
+
+      const tasks = getTasksForDate(currentDate);
+      const currentDecimalTime = h + (m / 60);
+      let currentTaskObj = tasks.find(t => {
+        if (t.end < t.start) return currentDecimalTime >= t.start || currentDecimalTime < t.end;
+        return currentDecimalTime >= t.start && currentDecimalTime < t.end;
+      });
+
+      if (currentTaskObj) {
+        taskDisplay.textContent = currentTaskObj.title; taskDisplay.style.color = currentTaskObj.color;
+      } else {
+        taskDisplay.textContent = "Свободное время"; taskDisplay.style.color = "var(--muted)";
+      }
+    }
+
+    function updateUI() {
+      document.getElementById('dateDisplay').textContent = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+      drawClock(); renderLists(); updateClockInfo();
+    }
+
+    updateUI(); setInterval(updateClockInfo, 10000);
+
+  </script>
+</body>
+</html>
