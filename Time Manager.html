@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minimal Planner Pro</title>
   <style>
-    /* Переменные тем */
     :root {
       --bg: #f9f9f9;
       --text: #121212;
@@ -34,7 +34,6 @@
       display: flex; flex-direction: column; align-items: center;
     }
 
-    /* Навигация */
     .top-bar {
       width: 100%; max-width: 800px;
       display: flex; justify-content: space-between; align-items: center;
@@ -61,7 +60,7 @@
       width: 100%; max-width: 800px; padding: 1rem 2rem; gap: 2rem; box-sizing: border-box;
     }
 
-    /* Циферблат */
+    
     .clock-wrapper {
       position: relative; width: 300px; height: 300px;
       display: flex; justify-content: center; align-items: center;
@@ -72,7 +71,7 @@
     .time-display { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.2rem; }
     .task-display { font-size: 0.9rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Панели задач */
+    
     .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: 100%; gap: 1rem; }
     .panel { background: var(--surface); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); }
     .panel h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
@@ -86,7 +85,7 @@
     .task-time { color: var(--muted); margin-right: 10px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
     .task-duration { font-size: 0.75rem; opacity: 0.7; }
 
-    /* Модальные окна */
+    
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
@@ -98,7 +97,7 @@
     }
     .modal h3 { margin-top: 0; text-align: center; }
 
-    /* Календарь и мини-кольца */
+    
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
     .cal-day-name { font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
@@ -117,17 +116,14 @@
       border-radius: 50%;
     }
     .cal-cell.active .cal-num { background: var(--primary); color: white; font-weight: bold; }
-    
     .cal-ring {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 38px; height: 38px; border-radius: 50%;
-      /* Маска для превращения круга в кольцо */
+      
       -webkit-mask: radial-gradient(transparent 60%, black 61%);
       mask: radial-gradient(transparent 60%, black 61%);
       opacity: 0.8; pointer-events: none; z-index: 1;
     }
-
-    /* Форма задач */
     .form-group { display: flex; flex-direction: column; margin-bottom: 1rem; }
     .form-group label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
     .form-group input, .form-group select {
@@ -165,8 +161,6 @@
       <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
     </div>
   </div>
-
-  <!-- Модалки -->
   <div class="modal-overlay" id="calModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="cal-header">
@@ -217,7 +211,21 @@
   </div>
 
   <script>
-    // --- Тема ---
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    if (tg.colorScheme === 'dark') {
+      root.setAttribute('data-theme', 'dark');
+    } else {
+      root.setAttribute('data-theme', 'light');
+    }
+    
+    tg.onEvent('themeChanged', () => {
+      const newTheme = tg.colorScheme === 'dark' ? 'dark' : 'light';
+      root.setAttribute('data-theme', newTheme);
+      localStorage.setItem('planner_theme', newTheme);
+      drawClock();
+    });
     const root = document.documentElement;
     const savedTheme = localStorage.getItem('planner_theme') || 'dark';
     root.setAttribute('data-theme', savedTheme);
@@ -229,11 +237,9 @@
       drawClock();
     });
 
-    // --- Структура Данных и Миграция ---
     let currentDate = new Date();
     let schedules = migrateData(JSON.parse(localStorage.getItem('planner_data')));
 
-    // Функция авто-миграции со старого формата на новый (с раздельными хранилищами)
     function migrateData(rawData) {
       if (!rawData) return { general: [], weeks: {}, days: {} };
       if (rawData.general && rawData.weeks && rawData.days) return rawData;
@@ -258,12 +264,10 @@
       return newSchedules;
     }
 
-    // --- Утилиты дат ---
     function formatDateKey(date) {
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
 
-    // Получает ключ недели (понедельник текущей недели)
     function getWeekKey(dateObj) {
       let d = new Date(dateObj);
       let day = d.getDay();
@@ -272,7 +276,6 @@
       return formatDateKey(d);
     }
 
-    // Сбор всех задач (Общие + На неделю + На день) для конкретной даты
     function getTasksForDate(date) {
       const dateKey = formatDateKey(date);
       const weekKey = getWeekKey(date);
@@ -290,7 +293,6 @@
       updateUI();
     }
 
-    // --- Импорт / Экспорт ---
     function exportData() {
       const blob = new Blob([JSON.stringify(schedules, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -313,7 +315,6 @@
       event.target.value = '';
     }
 
-    // --- Генерация CSS Градиента для Календаря ---
     function buildConicGradient(tasks) {
       let segments = [];
       tasks.forEach(t => {
@@ -344,7 +345,6 @@
       return str.replace(/,\s*$/, "");
     }
 
-    // --- Календарь ---
     let calDate = new Date();
 
     function openCalendar() {
@@ -392,7 +392,6 @@
         const dayDate = new Date(calDate.getFullYear(), calDate.getMonth(), i);
         const dayTasks = getTasksForDate(dayDate);
 
-        // Если есть задачи — рисуем мини-кольцо
         if (dayTasks.length > 0) {
           const ring = document.createElement('div');
           ring.className = 'cal-ring';
@@ -409,7 +408,6 @@
       }
     }
 
-    // --- Модалки и Сохранение ---
     function deleteTaskById(id) {
       if(schedules.general) schedules.general = schedules.general.filter(t => t.id != id);
       for(let w in schedules.weeks) schedules.weeks[w] = schedules.weeks[w].filter(t => t.id != id);
@@ -449,7 +447,6 @@
       const type = document.getElementById('taskType').value;
       const newTask = { id, title, start, end, color, type };
 
-      // Удаляем из старой категории, чтобы избежать дублей при смене типа
       deleteTaskById(id);
 
       const dateKey = formatDateKey(currentDate);
@@ -478,7 +475,6 @@
       document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
     }
 
-    // --- Утилиты ---
     function timeToDec(timeStr) {
       const [h, m] = timeStr.split(':').map(Number); return h + (m / 60);
     }
@@ -493,7 +489,6 @@
       if (h > 0) return `${h}ч`; return `${m}м`;
     }
 
-    // --- Канвас и рендер ---
     const canvas = document.getElementById('clockCanvas');
     const ctx = canvas.getContext('2d');
     const center = canvas.width / 2;
@@ -505,14 +500,12 @@
 
       const offset = -Math.PI / 2;
 
-      // Фоновое кольцо (стало темнее в светлой теме)
       ctx.beginPath();
       ctx.arc(center, center, radius, 0, 2 * Math.PI);
       ctx.lineWidth = 14;
       ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#333" : "#aaaaaa";
       ctx.stroke();
 
-      // Отрисовка задач
       tasks.forEach(task => {
         const startAngle = (task.start / 24) * 2 * Math.PI + offset;
         const endAngle = (task.end / 24) * 2 * Math.PI + offset;
@@ -527,13 +520,12 @@
         }
       });
 
-      // Отрисовка разметки (добавлены 3, 9, 15, 21)
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       
       for (let i = 0; i < 24; i++) {
         const angle = (i / 24) * 2 * Math.PI + offset;
-        const isMain = i % 6 === 0;       // 0, 6, 12, 18
-        const isSub = i % 3 === 0 && !isMain; // 3, 9, 15, 21
+        const isMain = i % 6 === 0;
+        const isSub = i % 3 === 0 && !isMain;
         
         const tickStart = radius - 11;
         const tickEnd = isMain ? radius - 18 : radius - 15;
@@ -545,7 +537,6 @@
         ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#555" : "#ccc";
         ctx.stroke();
 
-        // Отрисовка текста
         if (isMain || isSub) {
           const textDist = radius - 28;
           const tx = center + Math.cos(angle) * textDist;
