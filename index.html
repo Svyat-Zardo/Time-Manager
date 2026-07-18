@@ -3,7 +3,7 @@
 <head>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Minimal Planner Pro</title>
   <style>
     :root {
@@ -32,6 +32,8 @@
       transition: background-color 0.3s, color 0.3s;
       min-height: 100vh;
       display: flex; flex-direction: column; align-items: center;
+      /* Отступ для защиты от челки/выреза камеры */
+      padding-top: env(safe-area-inset-top, 24px); 
     }
 
     .top-bar {
@@ -53,17 +55,23 @@
     }
     button:hover { background: var(--hover); }
 
-    .date-display { font-size: 1.2rem; font-weight: 500; cursor: pointer; }
-
     .container {
       display: flex; flex-direction: column; align-items: center;
-      width: 100%; max-width: 800px; padding: 1rem 2rem; gap: 2rem; box-sizing: border-box;
+      width: 100%; max-width: 800px; padding: 1rem 2rem; box-sizing: border-box;
+      flex: 1;
+    }
+    .date-display { 
+      font-size: 1.4rem; 
+      font-weight: 500; 
+      cursor: pointer; 
+      margin-bottom: 1.5rem;
+      text-align: center;
     }
 
-    
     .clock-wrapper {
       position: relative; width: 300px; height: 300px;
       display: flex; justify-content: center; align-items: center;
+      margin-bottom: 3rem;
     }
     canvas { position: absolute; top: 0; left: 0; }
     
@@ -142,11 +150,12 @@
       <button onclick="document.getElementById('importFile').click()" title="Импорт данных">📂</button>
       <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
     </div>
-    <div class="date-display" id="dateDisplay" onclick="openCalendar()">Загрузка...</div>
     <button onclick="openTaskModal()">+ Задача</button>
   </div>
 
   <div class="container">
+    <div class="date-display" id="dateDisplay" onclick="openCalendar()">Загрузка...</div>
+    
     <div class="clock-wrapper">
       <canvas id="clockCanvas" width="300" height="300"></canvas>
       <div class="clock-info">
@@ -161,6 +170,7 @@
       <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
     </div>
   </div>
+  
   <div class="modal-overlay" id="calModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="cal-header">
@@ -229,13 +239,6 @@
     });
     const savedTheme = localStorage.getItem('planner_theme') || 'dark';
     root.setAttribute('data-theme', savedTheme);
-
-    document.getElementById('themeBtn').addEventListener('click', () => {
-      const newTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', newTheme);
-      localStorage.setItem('planner_theme', newTheme);
-      drawClock();
-    });
 
     let currentDate = new Date();
     let schedules = migrateData(JSON.parse(localStorage.getItem('planner_data')));
@@ -452,7 +455,6 @@
       const dateKey = formatDateKey(currentDate);
       const weekKey = getWeekKey(currentDate);
 
-      // Сохраняем в правильное хранилище
       if (type === 'general') {
         schedules.general.push(newTask);
       } else if (type === 'week') {
