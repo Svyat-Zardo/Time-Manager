@@ -27,13 +27,27 @@
       margin: 0; padding: 0; background-color: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       transition: background-color 0.3s, color 0.3s;
-      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-      padding-top: env(safe-area-inset-top, 24px); overflow-x: hidden;
+      height: 100vh; display: flex; flex-direction: column; align-items: center;
+      overflow: hidden; /* Отключаем глобальный скролл */
+    }
+
+    /* Зафиксированный верхний блок */
+    .fixed-header {
+      width: 100%; max-width: 800px;
+      display: flex; flex-direction: column; align-items: center;
+      background-color: var(--bg); z-index: 50; flex-shrink: 0;
+      padding-top: env(safe-area-inset-top, 10px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.02);
+      transition: background-color 0.3s;
+    }
+
+    [data-theme="dark"] .fixed-header {
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     }
 
     .top-bar {
-      width: 100%; max-width: 800px; display: flex; justify-content: space-between;
-      align-items: center; padding: 1rem 2rem; box-sizing: border-box;
+      width: 100%; display: flex; justify-content: center;
+      align-items: center; padding: 0.5rem 1rem 0 1rem; box-sizing: border-box;
     }
 
     .action-group { display: flex; gap: 8px; }
@@ -41,46 +55,61 @@
     button {
       background: var(--surface); color: var(--text);
       border: 1px solid var(--border); border-radius: 8px;
-      padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem;
+      padding: 0.4rem 0.7rem; cursor: pointer; font-size: 0.9rem;
       transition: background 0.2s; display: flex; align-items: center; justify-content: center;
     }
     button:hover { background: var(--hover); }
 
-    .container {
-      display: flex; flex-direction: column; align-items: center;
-      width: 100%; max-width: 800px; padding: 0 2rem 1rem 2rem; box-sizing: border-box; flex: 1;
-    }
-
     .date-display {
-      font-size: 1.4rem; font-weight: 500; cursor: pointer;
-      margin-bottom: 1.5rem; text-align: center;
+      font-size: 1.2rem; font-weight: 500; cursor: pointer;
+      margin-top: 0.4rem; margin-bottom: 0.4rem; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
     }
 
     .today-badge {
-      font-size: 1rem; color: var(--primary); font-weight: bold; margin-left: 8px;
+      font-size: 0.85rem; color: var(--primary); font-weight: bold;
     }
 
+    /* Компактные часы */
     .clock-wrapper {
-      position: relative; width: 300px; height: 300px;
+      position: relative; width: 260px; height: 260px;
       display: flex; justify-content: center; align-items: center;
-      margin-bottom: 3rem; touch-action: pan-y; /* Запрещаем браузерный свайп, разрешаем только скролл вниз */
+      margin-bottom: 0.5rem; touch-action: pan-y;
     }
     canvas { position: absolute; top: 0; left: 0; border-radius: 50%; }
 
-    .clock-info { position: absolute; text-align: center; width: 180px; z-index: 10; pointer-events: none; }
-    .time-display { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.2rem; }
-    .task-display { font-size: 0.9rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .clock-info { position: absolute; text-align: center; width: 160px; z-index: 10; pointer-events: none; }
+    .time-display { font-size: 2.2rem; font-weight: 300; margin-bottom: 0.1rem; }
+    .task-display { font-size: 0.85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: 100%; gap: 1rem; }
-    .panel { background: var(--surface); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); }
-    .panel h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    .add-task-btn {
+      background: var(--primary); color: white; border: none;
+      padding: 0.6rem 2rem; border-radius: 12px; font-weight: bold;
+      font-size: 0.95rem; margin-bottom: 0.8rem; box-shadow: 0 4px 12px rgba(74, 111, 165, 0.3);
+    }
+    .add-task-btn:hover { background: #3b5a87; color: white; }
+
+    /* Область для скролла с эффектом барабана */
+    .scroll-area {
+      flex: 1; width: 100%; max-width: 800px;
+      overflow-y: auto; overflow-x: hidden; position: relative;
+      padding: 10px 1.5rem 50px 1.5rem; box-sizing: border-box;
+    }
+
+    .panels { display: flex; flex-direction: column; gap: 0.8rem; width: 100%; position: relative; }
+    
+    .panel { 
+      background: var(--surface); padding: 1rem; border-radius: 12px; 
+      border: 1px solid var(--border); will-change: transform, opacity;
+    }
+    .panel h2 { margin-top: 0; font-size: 1.05rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 0.8rem; }
 
     .task-item {
-      display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 0.9rem;
+      display: flex; align-items: center; margin-bottom: 0.6rem; font-size: 0.9rem;
       cursor: pointer; padding: 4px; border-radius: 6px;
     }
     .task-item:hover { background: var(--hover); }
-    .color-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+    .color-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
     .task-time { color: var(--muted); margin-right: 10px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
     .task-duration { font-size: 0.75rem; opacity: 0.7; }
 
@@ -129,18 +158,18 @@
 </head>
 <body>
 
-  <div class="top-bar">
-    <div class="action-group">
-      <button id="themeBtn" title="Сменить тему">🌓</button>
-      <button onclick="exportData()" title="Копировать данные">💾</button>
-      <button onclick="openImportModal()" title="Вставить данные">📂</button>
-      <button onclick="addToDesktop()" title="Создать ярлык">📱</button>
-      <button onclick="openHelpModal()" title="Справка">❓</button>
+  <!-- Зафиксированная шапка -->
+  <div class="fixed-header">
+    <div class="top-bar">
+      <div class="action-group">
+        <button id="themeBtn" title="Сменить тему">🌓</button>
+        <button onclick="exportData()" title="Копировать данные">💾</button>
+        <button onclick="openImportModal()" title="Вставить данные">📂</button>
+        <button onclick="addToDesktop()" title="Создать ярлык">📱</button>
+        <button onclick="openHelpModal()" title="Справка">❓</button>
+      </div>
     </div>
-    <button onclick="openTaskModal()">+ Задача</button>
-  </div>
-
-  <div class="container" id="mainContainer">
+    
     <div class="date-display" onclick="openCalendar()">
       <span id="dateText">Загрузка...</span>
       <span id="todayBadge" class="today-badge"></span>
@@ -148,13 +177,18 @@
 
     <!-- Свайп работает только внутри этого блока -->
     <div class="clock-wrapper" id="clockWrapper">
-      <canvas id="clockCanvas" width="300" height="300"></canvas>
+      <canvas id="clockCanvas" width="260" height="260"></canvas>
       <div class="clock-info">
         <div class="time-display" id="currentTime">00:00</div>
         <div class="task-display" id="currentTask">Ожидание...</div>
       </div>
     </div>
 
+    <button class="add-task-btn" onclick="openTaskModal()">+ Задача</button>
+  </div>
+
+  <!-- Скроллируемая область с задачами (барабан) -->
+  <div class="scroll-area" id="scrollArea">
     <div class="panels">
       <div class="panel" id="panel-general"><h2>Общий режим</h2><div class="task-list"></div></div>
       <div class="panel" id="panel-day"><h2>План на день</h2><div class="task-list"></div></div>
@@ -162,7 +196,7 @@
     </div>
   </div>
 
-  <!-- Модалка календаря -->
+  <!-- Модалки (те же самые) -->
   <div class="modal-overlay" id="calModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="cal-header">
@@ -174,7 +208,6 @@
     </div>
   </div>
 
-  <!-- Модалка задач -->
   <div class="modal-overlay" id="taskModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <h3 id="modalTitle">Новая задача</h3>
@@ -213,7 +246,6 @@
     </div>
   </div>
 
-  <!-- Модалка импорта -->
   <div class="modal-overlay" id="importModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <h3>Вставить данные</h3>
@@ -228,7 +260,6 @@
     </div>
   </div>
 
-  <!-- Модалка справки -->
   <div class="modal-overlay" id="helpModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <h3>О приложении</h3>
@@ -305,14 +336,46 @@
     // Установка ярлыка
     function addToDesktop() {
       if (tg && tg.addToHomeScreen) {
-        // Нативный метод Telegram (работает на новых версиях)
         tg.addToHomeScreen();
       } else {
         alert("Ваша система блокирует автоматическое добавление.\n\nДля установки нажмите 'Поделиться' (на iOS) или 'Меню' (на Android в браузере Chrome) -> 'На экран Домой'.\n\nПриложение полностью кэшировано и будет работать без интернета!");
       }
     }
 
-    // Свайпы ТОЛЬКО ПО ЧАСАМ (Диаграмме)
+    // ЭФФЕКТ БАРАБАНА при скроллинге
+    const scrollArea = document.getElementById('scrollArea');
+    scrollArea.addEventListener('scroll', applyDrumEffect);
+
+    function applyDrumEffect() {
+      const scrollTop = scrollArea.scrollTop;
+      const panels = document.querySelectorAll('.panel');
+      
+      panels.forEach(panel => {
+        const panelTop = panel.offsetTop;
+        const dist = panelTop - scrollTop;
+        const threshold = 40; 
+        
+        if (dist < threshold) {
+          let factor = (threshold - dist) / 100;
+          if (factor < 0) factor = 0;
+          if (factor > 1) factor = 1;
+          
+          const rotateX = factor * 45; 
+          const scale = 1 - factor * 0.1; 
+          const translateY = factor * 20; 
+          const opacity = Math.max(0, 1 - Math.pow(factor, 1.5));
+          
+          panel.style.transform = `perspective(800px) translateY(${translateY}px) rotateX(${rotateX}deg) scale(${scale})`;
+          panel.style.opacity = opacity;
+          panel.style.transformOrigin = "top center";
+        } else {
+          panel.style.transform = 'none';
+          panel.style.opacity = 1;
+        }
+      });
+    }
+
+    // Свайпы ТОЛЬКО ПО ЧАСАМ
     let touchStartX = 0;
     let touchEndX = 0;
     const clockWrapper = document.getElementById('clockWrapper');
@@ -354,7 +417,7 @@
       }, 150);
     }
 
-    // Сохранение и загрузка (Локал)
+    // Сохранение и загрузка
     function saveToMemory() { localStorage.setItem('planner_data', JSON.stringify(schedules)); }
     function loadFromMemory() {
       const localData = localStorage.getItem('planner_data');
@@ -408,7 +471,6 @@
       return tasks;
     }
 
-    // Экспорт в буфер обмена
     async function exportData() {
       const dataStr = JSON.stringify(schedules);
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -418,14 +480,12 @@
           else alert("Данные скопированы в буфер обмена!");
         } catch (err) { alert("Ошибка доступа к буферу. Скопируйте вручную из поля импорта."); }
       } else {
-        // Fallback если буфер недоступен
         document.getElementById('importTextarea').value = dataStr;
         openImportModal();
         alert("Ваш браузер не поддерживает копирование. Скопируйте текст из открывшегося поля.");
       }
     }
 
-    // Импорт из поля
     function openImportModal() {
       document.getElementById('importTextarea').value = '';
       document.getElementById('importModal').style.display = 'flex';
@@ -443,7 +503,6 @@
       } catch (err) { alert("Ошибка! Неверный формат данных."); }
     }
 
-    // Календарь
     function buildConicGradient(tasks) {
       let segments = [];
       tasks.forEach(t => {
@@ -500,7 +559,6 @@
       }
     }
 
-    // Модалки
     function openHelpModal() { document.getElementById('helpModal').style.display = 'flex'; }
     function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); }
     
@@ -553,15 +611,15 @@
       if (h > 0 && m > 0) return `${h}ч ${m}м`; if (h > 0) return `${h}ч`; return `${m}м`;
     }
 
-    // Часы
+    // Измененные размеры часов (260x260)
     const canvas = document.getElementById('clockCanvas'); const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = 300 * dpr; canvas.height = 300 * dpr; canvas.style.width = "300px"; canvas.style.height = "300px";
+    canvas.width = 260 * dpr; canvas.height = 260 * dpr; canvas.style.width = "260px"; canvas.style.height = "260px";
     ctx.scale(dpr, dpr);
-    const center = 150; const radius = center - 30;
+    const center = 130; const radius = center - 25;
 
     function drawClock() {
-      const tasks = getTasksForDate(currentDate); ctx.clearRect(0, 0, 300, 300);
+      const tasks = getTasksForDate(currentDate); ctx.clearRect(0, 0, 260, 260);
       const offset = -Math.PI / 2;
       ctx.beginPath(); ctx.arc(center, center, radius, 0, 2 * Math.PI); ctx.lineWidth = 14;
       ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#333" : "#aaaaaa"; ctx.stroke();
@@ -578,12 +636,12 @@
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       for (let i = 0; i < 24; i++) {
         const angle = (i / 24) * 2 * Math.PI + offset; const isMain = i % 6 === 0; const isSub = i % 3 === 0 && !isMain;
-        const tickStart = radius - 11; const tickEnd = isMain ? radius - 18 : radius - 15;
+        const tickStart = radius - 10; const tickEnd = isMain ? radius - 16 : radius - 13;
         ctx.beginPath(); ctx.moveTo(center + Math.cos(angle) * tickStart, center + Math.sin(angle) * tickStart);
         ctx.lineTo(center + Math.cos(angle) * tickEnd, center + Math.sin(angle) * tickEnd);
         ctx.lineWidth = isMain ? 2 : 1; ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#555" : "#ccc"; ctx.stroke();
         if (isMain || isSub) {
-          const textDist = radius - 28; const tx = center + Math.cos(angle) * textDist; const ty = center + Math.sin(angle) * textDist;
+          const textDist = radius - 26; const tx = center + Math.cos(angle) * textDist; const ty = center + Math.sin(angle) * textDist;
           if (isMain) { ctx.font = "14px -apple-system, sans-serif"; ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#ccc" : "#555"; }
           else { ctx.font = "12px -apple-system, sans-serif"; ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#888" : "#999"; }
           ctx.fillText(i === 0 ? "0" : i.toString(), tx, ty);
@@ -605,6 +663,8 @@
           <div class="task-title">${task.title || 'Без названия'}</div>`;
         const targetPanel = panels[task.type] ? panels[task.type] : panels['day']; targetPanel.appendChild(item);
       });
+
+      applyDrumEffect();
     }
 
     function updateClockInfo() {
@@ -625,7 +685,6 @@
     }
 
     function updateUI() {
-      // Обновление даты и надписи (Сегодня)
       document.getElementById('dateText').textContent = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
       
       const today = new Date();
