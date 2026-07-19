@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Minimal Planner Pro</title>
+  <!-- PWA Meta Tags для оптимизации ярлыка -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121212">
+  <title>TimeManager</title>
   <style>
     :root {
       --bg: #f9f9f9;
@@ -32,8 +35,8 @@
       transition: background-color 0.3s, color 0.3s;
       min-height: 100vh;
       display: flex; flex-direction: column; align-items: center;
-      /* Отступ для защиты от челки/выреза камеры */
-      padding-top: env(safe-area-inset-top, 24px); 
+      padding-top: env(safe-area-inset-top, 24px);
+      overflow-x: hidden;
     }
 
     .top-bar {
@@ -60,10 +63,18 @@
       width: 100%; max-width: 800px; padding: 1rem 2rem; box-sizing: border-box;
       flex: 1;
     }
-    .date-display { 
-      font-size: 1.4rem; 
-      font-weight: 500; 
-      cursor: pointer; 
+    
+    /* Зона свайпа с анимацией */
+    #swipeArea {
+      width: 100%;
+      display: flex; flex-direction: column; align-items: center;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .date-display {
+      font-size: 1.4rem;
+      font-weight: 500;
+      cursor: pointer;
       margin-bottom: 1.5rem;
       text-align: center;
     }
@@ -74,16 +85,15 @@
       margin-bottom: 3rem;
     }
     canvas { position: absolute; top: 0; left: 0; }
-    
+
     .clock-info { position: absolute; text-align: center; width: 180px; z-index: 10; }
     .time-display { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.2rem; }
     .task-display { font-size: 0.9rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    
     .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: 100%; gap: 1rem; }
     .panel { background: var(--surface); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); }
     .panel h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-    
+
     .task-item {
       display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 0.9rem;
       cursor: pointer; padding: 4px; border-radius: 6px;
@@ -93,7 +103,6 @@
     .task-time { color: var(--muted); margin-right: 10px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
     .task-duration { font-size: 0.75rem; opacity: 0.7; }
 
-    
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
@@ -102,21 +111,21 @@
     .modal {
       background: var(--bg); padding: 1.5rem; border-radius: 16px;
       width: 90%; max-width: 350px; border: 1px solid var(--border);
+      max-height: 90vh; overflow-y: auto;
     }
     .modal h3 { margin-top: 0; text-align: center; }
 
-    
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
     .cal-day-name { font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
-    
-    .cal-cell { 
+
+    .cal-cell {
       position: relative; display: flex; justify-content: center; align-items: center;
-      height: 44px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; 
+      height: 44px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
     }
     .cal-cell:hover { background: var(--hover); }
     .cal-cell.empty { cursor: default; background: transparent !important; }
-    
+
     .cal-num {
       position: relative; z-index: 2;
       width: 26px; height: 26px;
@@ -127,7 +136,6 @@
     .cal-ring {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 38px; height: 38px; border-radius: 50%;
-      
       -webkit-mask: radial-gradient(transparent 60%, black 61%);
       mask: radial-gradient(transparent 60%, black 61%);
       opacity: 0.8; pointer-events: none; z-index: 1;
@@ -139,6 +147,10 @@
       padding: 0.5rem; border-radius: 6px; font-family: inherit;
     }
     .modal-actions { display: flex; justify-content: space-between; margin-top: 1.5rem; }
+
+    /* Стили для справки */
+    .help-content { font-size: 0.9rem; line-height: 1.5; }
+    .help-content ul { padding-left: 20px; margin-top: 5px; }
   </style>
 </head>
 <body>
@@ -149,28 +161,33 @@
       <button onclick="exportData()" title="Экспорт данных">💾</button>
       <button onclick="document.getElementById('importFile').click()" title="Импорт данных">📂</button>
       <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+      <button onclick="addToDesktop()" title="Создать ярлык">📱</button>
+      <button onclick="openHelpModal()" title="Справка">❓</button>
     </div>
     <button onclick="openTaskModal()">+ Задача</button>
   </div>
 
   <div class="container">
-    <div class="date-display" id="dateDisplay" onclick="openCalendar()">Загрузка...</div>
-    
-    <div class="clock-wrapper">
-      <canvas id="clockCanvas" width="300" height="300"></canvas>
-      <div class="clock-info">
-        <div class="time-display" id="currentTime">00:00</div>
-        <div class="task-display" id="currentTask">Ожидание...</div>
+    <div id="swipeArea">
+      <div class="date-display" id="dateDisplay" onclick="openCalendar()">Загрузка...</div>
+
+      <div class="clock-wrapper">
+        <canvas id="clockCanvas" width="300" height="300"></canvas>
+        <div class="clock-info">
+          <div class="time-display" id="currentTime">00:00</div>
+          <div class="task-display" id="currentTask">Ожидание...</div>
+        </div>
+      </div>
+
+      <div class="panels">
+        <div class="panel" id="panel-general"><h2>Общий режим</h2><div class="task-list"></div></div>
+        <div class="panel" id="panel-day"><h2>План на день</h2><div class="task-list"></div></div>
+        <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
       </div>
     </div>
-
-    <div class="panels">
-      <div class="panel" id="panel-general"><h2>Общий режим</h2><div class="task-list"></div></div>
-      <div class="panel" id="panel-day"><h2>План на день</h2><div class="task-list"></div></div>
-      <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
-    </div>
   </div>
-  
+
+  <!-- Модальное окно календаря -->
   <div class="modal-overlay" id="calModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="cal-header">
@@ -182,6 +199,7 @@
     </div>
   </div>
 
+  <!-- Модальное окно задач -->
   <div class="modal-overlay" id="taskModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <h3 id="modalTitle">Новая задача</h3>
@@ -220,44 +238,164 @@
     </div>
   </div>
 
-  <script>
+  <!-- Модальное окно справки -->
+  <div class="modal-overlay" id="helpModal" onclick="closeModals()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>О приложении</h3>
+      <div class="help-content">
+        <p><b>TimeManager</b> — это ваш автономный планировщик задач, который хранит данные прямо на вашем устройстве.</p>
+        <ul>
+          <li><b>Навигация:</b> Свайпайте влево или вправо, чтобы переключаться между днями.</li>
+          <li><b>Календарь:</b> Нажмите на дату сверху, чтобы открыть полный календарь.</li>
+          <li><b>Импорт/Экспорт:</b> Ваши данные никуда не отправляются. Используйте кнопки 💾 (сохранить) и 📂 (загрузить), чтобы перенести расписание на другое устройство в виде файла.</li>
+          <li><b>Ярлык (PWA):</b> Нажмите на кнопку 📱, чтобы узнать, как добавить приложение на главный экран смартфона для удобного доступа.</li>
+        </ul>
+      </div>
+      <div class="modal-actions" style="justify-content: center;">
+        <button onclick="closeModals()">Понятно</button>
+      </div>
+    </div>
+  </div>
+
+<script>
     const root = document.documentElement;
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    if (tg.colorScheme === 'dark') {
-      root.setAttribute('data-theme', 'dark');
+    let currentDate = new Date();
+    let schedules = { general: [], weeks: {}, days: {} };
+    let calDate = new Date();
+
+    // 1. Инициализация темы без зависимостей от Telegram
+    let manualTheme = localStorage.getItem('manual_theme_enabled') === 'true';
+    if (!manualTheme) {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
     } else {
-      root.setAttribute('data-theme', 'light');
+      root.setAttribute('data-theme', localStorage.getItem('planner_theme') || 'dark');
     }
-    
-    tg.onEvent('themeChanged', () => {
-      const newTheme = tg.colorScheme === 'dark' ? 'dark' : 'light';
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const currentTheme = root.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', newTheme);
+      
       localStorage.setItem('planner_theme', newTheme);
+      localStorage.setItem('manual_theme_enabled', 'true');
+      manualTheme = true;
       drawClock();
     });
-    const savedTheme = localStorage.getItem('planner_theme') || 'dark';
-    root.setAttribute('data-theme', savedTheme);
 
-    let currentDate = new Date();
-    let schedules = migrateData(JSON.parse(localStorage.getItem('planner_data')));
+    // 2. Оптимизированное создание ярлыка (PWA Install Prompt)
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
 
+    function addToDesktop() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('Пользователь установил PWA');
+          }
+          deferredPrompt = null;
+        });
+      } else {
+        alert("Чтобы добавить на главный экран:\n\nAndroid (Chrome): Меню (три точки) -> 'Добавить на гл. экран'.\n\niOS (Safari): Кнопка 'Поделиться' -> 'На экран Домой'.");
+      }
+    }
+
+    // 3. Анимация свайпа и переключение дней
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.body.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+
+    document.body.addEventListener('touchend', e => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    });
+
+    function handleSwipe() {
+      const swipeDist = touchEndX - touchStartX;
+      if (swipeDist > 70) {
+        // Свайп вправо - предыдущий день
+        animateSwipe('right', () => {
+          currentDate.setDate(currentDate.getDate() - 1);
+          updateUI();
+        });
+      } else if (swipeDist < -70) {
+        // Свайп влево - следующий день
+        animateSwipe('left', () => {
+          currentDate.setDate(currentDate.getDate() + 1);
+          updateUI();
+        });
+      }
+    }
+
+    function animateSwipe(direction, callback) {
+      const swipeArea = document.getElementById('swipeArea');
+      
+      // Анимация ухода
+      swipeArea.style.transform = direction === 'left' ? 'translateX(-50px)' : 'translateX(50px)';
+      swipeArea.style.opacity = '0';
+      
+      setTimeout(() => {
+        callback(); // Обновляем данные
+        
+        // Подготовка к появлению с противоположной стороны
+        swipeArea.style.transition = 'none';
+        swipeArea.style.transform = direction === 'left' ? 'translateX(50px)' : 'translateX(-50px)';
+        
+        // Форсируем перерисовку кадра
+        void swipeArea.offsetWidth;
+        
+        // Анимация появления
+        swipeArea.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+        swipeArea.style.transform = 'translateX(0)';
+        swipeArea.style.opacity = '1';
+      }, 200); // 200ms совпадает со временем transition
+    }
+
+    // 4. Локальное хранение (без серверов)
+    function saveToMemory() {
+      localStorage.setItem('planner_data', JSON.stringify(schedules));
+    }
+
+    function loadFromMemory() {
+      const localData = localStorage.getItem('planner_data');
+      if (localData) {
+        schedules = migrateData(JSON.parse(localData));
+      }
+      updateUI();
+    }
+
+    // 5. Вспомогательные функции парсинга
     function migrateData(rawData) {
       if (!rawData) return { general: [], weeks: {}, days: {} };
-      if (rawData.general && rawData.weeks && rawData.days) return rawData;
       
+      if (rawData.general && rawData.weeks && rawData.days) {
+        rawData.general.forEach(t => t.type = 'general');
+        Object.values(rawData.weeks).forEach(arr => arr.forEach(t => t.type = 'week'));
+        Object.values(rawData.days).forEach(arr => arr.forEach(t => t.type = 'day'));
+        return rawData;
+      }
+
       let newSchedules = { general: [], weeks: {}, days: {} };
       for (let key in rawData) {
         if (Array.isArray(rawData[key])) {
           rawData[key].forEach(t => {
             if (t.type === 'general') {
+              t.type = 'general';
               newSchedules.general.push(t);
             } else if (t.type === 'week') {
+              t.type = 'week';
               let wKey = getWeekKey(new Date(key));
               if(!newSchedules.weeks[wKey]) newSchedules.weeks[wKey] = [];
               newSchedules.weeks[wKey].push(t);
             } else {
+              t.type = 'day';
               if(!newSchedules.days[key]) newSchedules.days[key] = [];
               newSchedules.days[key].push(t);
             }
@@ -271,14 +409,6 @@
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
 
-    document.getElementById('themeBtn').addEventListener('click', () => {
-      const currentTheme = root.getAttribute('data-theme');
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', newTheme);
-      localStorage.setItem('planner_theme', newTheme);
-      drawClock(); // Перерисовываем часы под цвета темы
-    });
-
     function getWeekKey(dateObj) {
       let d = new Date(dateObj);
       let day = d.getDay();
@@ -291,25 +421,30 @@
       const dateKey = formatDateKey(date);
       const weekKey = getWeekKey(date);
       let tasks = [];
-      
+
       if (schedules.general) tasks = tasks.concat(schedules.general);
       if (schedules.weeks[weekKey]) tasks = tasks.concat(schedules.weeks[weekKey]);
       if (schedules.days[dateKey]) tasks = tasks.concat(schedules.days[dateKey]);
-      
+
       return tasks;
     }
 
-    function saveToMemory() {
-      localStorage.setItem('planner_data', JSON.stringify(schedules));
-      updateUI();
-    }
-
+    // 6. Улучшенный Импорт и Экспорт
     function exportData() {
-      const blob = new Blob([JSON.stringify(schedules, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = 'planner_data.json';
-      link.click(); URL.revokeObjectURL(url);
+      try {
+        const dataStr = JSON.stringify(schedules, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; 
+        link.download = `TimeManager_Backup_${formatDateKey(new Date())}.json`;
+        document.body.appendChild(link);
+        link.click(); 
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("Ошибка при экспорте данных.");
+      }
     }
 
     function importData(event) {
@@ -318,12 +453,17 @@
       const reader = new FileReader();
       reader.onload = e => {
         try {
-          schedules = migrateData(JSON.parse(e.target.result));
+          const parsed = JSON.parse(e.target.result);
+          schedules = migrateData(parsed);
           saveToMemory();
-        } catch (err) { alert('Ошибка чтения файла.'); }
+          updateUI();
+          alert("Данные успешно импортированы!");
+        } catch (err) { 
+          alert('Ошибка чтения файла. Убедитесь, что это корректный файл резервной копии (.json).'); 
+        }
       };
       reader.readAsText(file);
-      event.target.value = '';
+      event.target.value = ''; // Сброс инпута для возможности повторной загрузки того же файла
     }
 
     function buildConicGradient(tasks) {
@@ -337,27 +477,26 @@
         }
       });
       segments.sort((a,b) => a.start - b.start);
-      
+
       let str = "";
       let currentAngle = 0;
-      
+
       segments.forEach((seg, index) => {
         const startDeg = (seg.start / 24) * 360;
         const endDeg = (seg.end / 24) * 360;
-        
+
         if (startDeg > currentAngle) {
           str += `transparent ${currentAngle}deg ${startDeg}deg, `;
         }
         str += `${seg.color} ${startDeg}deg ${endDeg}deg${index === segments.length - 1 && endDeg === 360 ? '' : ', '}`;
         currentAngle = endDeg;
       });
-      
+
       if (currentAngle < 360) str += `transparent ${currentAngle}deg 360deg`;
       return str.replace(/,\s*$/, "");
     }
 
-    let calDate = new Date();
-
+    // 7. Календарь
     function openCalendar() {
       document.getElementById('calModal').style.display = 'flex';
       renderCalendar();
@@ -391,11 +530,11 @@
       for (let i = 1; i <= lastDay.getDate(); i++) {
         const el = document.createElement('div');
         el.className = 'cal-cell';
-        
+
         const numSpan = document.createElement('span');
         numSpan.className = 'cal-num';
         numSpan.textContent = i;
-        
+
         if (i === currentDate.getDate() && calDate.getMonth() === currentDate.getMonth() && calDate.getFullYear() === currentDate.getFullYear()) {
           el.classList.add('active');
         }
@@ -417,6 +556,11 @@
         };
         grid.appendChild(el);
       }
+    }
+
+    // 8. Модальные окна и задачи
+    function openHelpModal() {
+      document.getElementById('helpModal').style.display = 'flex';
     }
 
     function deleteTaskById(id) {
@@ -473,12 +617,12 @@
         schedules.days[dateKey].push(newTask);
       }
 
-      closeModals(); saveToMemory();
+      closeModals(); saveToMemory(); updateUI();
     }
 
     function deleteTask() {
       deleteTaskById(document.getElementById('taskId').value);
-      closeModals(); saveToMemory();
+      closeModals(); saveToMemory(); updateUI();
     }
 
     function closeModals() {
@@ -488,26 +632,33 @@
     function timeToDec(timeStr) {
       const [h, m] = timeStr.split(':').map(Number); return h + (m / 60);
     }
+
     function decToTime(dec) {
       const h = Math.floor(dec); const m = Math.round((dec - h) * 60);
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
+
     function getDurationText(start, end) {
-      let dur = end - start; if (dur < 0) dur += 24; 
+      let dur = end - start; if (dur < 0) dur += 24;
       const h = Math.floor(dur); const m = Math.round((dur - h) * 60);
       if (h > 0 && m > 0) return `${h}ч ${m}м`;
       if (h > 0) return `${h}ч`; return `${m}м`;
     }
 
+    // 9. Отрисовка часов и UI
     const canvas = document.getElementById('clockCanvas');
     const ctx = canvas.getContext('2d');
-    const center = canvas.width / 2;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 300 * dpr; canvas.height = 300 * dpr;
+    canvas.style.width = "300px"; canvas.style.height = "300px";
+    ctx.scale(dpr, dpr);
+
+    const center = 150; 
     const radius = center - 30;
 
     function drawClock() {
       const tasks = getTasksForDate(currentDate);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+      ctx.clearRect(0, 0, 300, 300);
       const offset = -Math.PI / 2;
 
       ctx.beginPath();
@@ -517,11 +668,16 @@
       ctx.stroke();
 
       tasks.forEach(task => {
+        if (task.start === undefined || task.end === undefined) return;
         const startAngle = (task.start / 24) * 2 * Math.PI + offset;
         const endAngle = (task.end / 24) * 2 * Math.PI + offset;
+        if (isNaN(startAngle) || isNaN(endAngle)) return;
 
-        ctx.lineWidth = 14; ctx.strokeStyle = task.color; ctx.lineCap = "round";
+        ctx.lineWidth = 14; 
+        ctx.strokeStyle = task.color || '#4a6fa5'; 
+        ctx.lineCap = "round";
         ctx.beginPath();
+        
         if (task.end < task.start) {
           ctx.arc(center, center, radius, startAngle, 2 * Math.PI + offset); ctx.stroke();
           ctx.beginPath(); ctx.arc(center, center, radius, offset, endAngle); ctx.stroke();
@@ -531,15 +687,15 @@
       });
 
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      
+
       for (let i = 0; i < 24; i++) {
         const angle = (i / 24) * 2 * Math.PI + offset;
         const isMain = i % 6 === 0;
         const isSub = i % 3 === 0 && !isMain;
-        
+
         const tickStart = radius - 11;
         const tickEnd = isMain ? radius - 18 : radius - 15;
-        
+
         ctx.beginPath();
         ctx.moveTo(center + Math.cos(angle) * tickStart, center + Math.sin(angle) * tickStart);
         ctx.lineTo(center + Math.cos(angle) * tickEnd, center + Math.sin(angle) * tickEnd);
@@ -551,7 +707,7 @@
           const textDist = radius - 28;
           const tx = center + Math.cos(angle) * textDist;
           const ty = center + Math.sin(angle) * textDist;
-          
+
           if (isMain) {
             ctx.font = "14px -apple-system, sans-serif";
             ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#ccc" : "#555";
@@ -559,7 +715,6 @@
             ctx.font = "12px -apple-system, sans-serif";
             ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#888" : "#999";
           }
-          
           ctx.fillText(i === 0 ? "0" : i.toString(), tx, ty);
         }
       }
@@ -575,19 +730,26 @@
 
       Object.values(panels).forEach(p => p.innerHTML = '');
 
-      tasks.sort((a, b) => a.start - b.start).forEach(task => {
+      tasks.sort((a, b) => (a.start || 0) - (b.start || 0)).forEach(task => {
         const item = document.createElement('div');
         item.className = 'task-item';
         item.onclick = () => openTaskModal(task.id);
+        
+        const startStr = task.start !== undefined ? decToTime(task.start) : "--:--";
+        const endStr = task.end !== undefined ? decToTime(task.end) : "--:--";
+        const durStr = (task.start !== undefined && task.end !== undefined) ? `(${getDurationText(task.start, task.end)})` : "";
+        
         item.innerHTML = `
-          <div class="color-dot" style="background-color: ${task.color}"></div>
+          <div class="color-dot" style="background-color: ${task.color || '#4a6fa5'}"></div>
           <div class="task-time">
-            ${decToTime(task.start)} - ${decToTime(task.end)}
-            <span class="task-duration">(${getDurationText(task.start, task.end)})</span>
+            ${startStr} - ${endStr}
+            <span class="task-duration">${durStr}</span>
           </div>
-          <div class="task-title">${task.title}</div>
+          <div class="task-title">${task.title || 'Без названия'}</div>
         `;
-        panels[task.type].appendChild(item);
+        
+        const targetPanel = panels[task.type] ? panels[task.type] : panels['day'];
+        targetPanel.appendChild(item);
       });
     }
 
@@ -622,8 +784,9 @@
       drawClock(); renderLists(); updateClockInfo();
     }
 
-    updateUI(); setInterval(updateClockInfo, 10000);
-
-  </script>
+    // Запуск приложения
+    loadFromMemory();
+    setInterval(updateClockInfo, 10000);
+</script>
 </body>
 </html>
