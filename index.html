@@ -2,91 +2,72 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <!-- PWA Meta Tags для оптимизации ярлыка -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <!-- PWA и мета-теги -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#121212">
   <title>TimeManager</title>
+  
+  <!-- Подключаем Telegram SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
     :root {
-      --bg: #f9f9f9;
-      --text: #121212;
-      --surface: #ffffff;
-      --border: #e0e0e0;
-      --primary: #4a6fa5;
-      --hover: #f0f0f0;
-      --muted: #888888;
+      --bg: #f9f9f9; --text: #121212; --surface: #ffffff;
+      --border: #e0e0e0; --primary: #4a6fa5; --hover: #f0f0f0; --muted: #888888;
     }
 
     [data-theme="dark"] {
-      --bg: #121212;
-      --text: #ffffff;
-      --surface: #1e1e1e;
-      --border: #333333;
-      --hover: #2a2a2a;
-      --muted: #888888;
+      --bg: #121212; --text: #ffffff; --surface: #1e1e1e;
+      --border: #333333; --hover: #2a2a2a; --muted: #888888;
     }
 
     body {
-      margin: 0; padding: 0;
-      background-color: var(--bg); color: var(--text);
+      margin: 0; padding: 0; background-color: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       transition: background-color 0.3s, color 0.3s;
-      min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center;
-      padding-top: env(safe-area-inset-top, 24px);
-      overflow-x: hidden;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+      padding-top: env(safe-area-inset-top, 24px); overflow-x: hidden;
     }
 
     .top-bar {
-      width: 100%; max-width: 800px;
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 1rem 2rem; box-sizing: border-box;
+      width: 100%; max-width: 800px; display: flex; justify-content: space-between;
+      align-items: center; padding: 1rem 2rem; box-sizing: border-box;
     }
 
-    .action-group {
-      display: flex; gap: 8px;
-    }
+    .action-group { display: flex; gap: 8px; }
 
     button {
       background: var(--surface); color: var(--text);
       border: 1px solid var(--border); border-radius: 8px;
       padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem;
-      transition: background 0.2s;
-      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s; display: flex; align-items: center; justify-content: center;
     }
     button:hover { background: var(--hover); }
 
     .container {
       display: flex; flex-direction: column; align-items: center;
-      width: 100%; max-width: 800px; padding: 1rem 2rem; box-sizing: border-box;
-      flex: 1;
-    }
-    
-    /* Зона свайпа с анимацией */
-    #swipeArea {
-      width: 100%;
-      display: flex; flex-direction: column; align-items: center;
-      transition: transform 0.2s ease, opacity 0.2s ease;
+      width: 100%; max-width: 800px; padding: 0 2rem 1rem 2rem; box-sizing: border-box; flex: 1;
     }
 
     .date-display {
-      font-size: 1.4rem;
-      font-weight: 500;
-      cursor: pointer;
-      margin-bottom: 1.5rem;
-      text-align: center;
+      font-size: 1.4rem; font-weight: 500; cursor: pointer;
+      margin-bottom: 1.5rem; text-align: center;
+    }
+
+    .today-badge {
+      font-size: 1rem; color: var(--primary); font-weight: bold; margin-left: 8px;
     }
 
     .clock-wrapper {
       position: relative; width: 300px; height: 300px;
       display: flex; justify-content: center; align-items: center;
-      margin-bottom: 3rem;
+      margin-bottom: 3rem; touch-action: pan-y; /* Запрещаем браузерный свайп, разрешаем только скролл вниз */
     }
-    canvas { position: absolute; top: 0; left: 0; }
+    canvas { position: absolute; top: 0; left: 0; border-radius: 50%; }
 
-    .clock-info { position: absolute; text-align: center; width: 180px; z-index: 10; }
+    .clock-info { position: absolute; text-align: center; width: 180px; z-index: 10; pointer-events: none; }
     .time-display { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.2rem; }
     .task-display { font-size: 0.9rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -110,8 +91,7 @@
     }
     .modal {
       background: var(--bg); padding: 1.5rem; border-radius: 16px;
-      width: 90%; max-width: 350px; border: 1px solid var(--border);
-      max-height: 90vh; overflow-y: auto;
+      width: 90%; max-width: 350px; border: 1px solid var(--border); max-height: 90vh; overflow-y: auto;
     }
     .modal h3 { margin-top: 0; text-align: center; }
 
@@ -125,13 +105,7 @@
     }
     .cal-cell:hover { background: var(--hover); }
     .cal-cell.empty { cursor: default; background: transparent !important; }
-
-    .cal-num {
-      position: relative; z-index: 2;
-      width: 26px; height: 26px;
-      display: flex; justify-content: center; align-items: center;
-      border-radius: 50%;
-    }
+    .cal-num { position: relative; z-index: 2; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center; border-radius: 50%; }
     .cal-cell.active .cal-num { background: var(--primary); color: white; font-weight: bold; }
     .cal-ring {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -140,15 +114,15 @@
       mask: radial-gradient(transparent 60%, black 61%);
       opacity: 0.8; pointer-events: none; z-index: 1;
     }
+
     .form-group { display: flex; flex-direction: column; margin-bottom: 1rem; }
     .form-group label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
-    .form-group input, .form-group select {
+    .form-group input, .form-group select, .form-group textarea {
       background: var(--surface); color: var(--text); border: 1px solid var(--border);
       padding: 0.5rem; border-radius: 6px; font-family: inherit;
     }
     .modal-actions { display: flex; justify-content: space-between; margin-top: 1.5rem; }
-
-    /* Стили для справки */
+    
     .help-content { font-size: 0.9rem; line-height: 1.5; }
     .help-content ul { padding-left: 20px; margin-top: 5px; }
   </style>
@@ -158,36 +132,37 @@
   <div class="top-bar">
     <div class="action-group">
       <button id="themeBtn" title="Сменить тему">🌓</button>
-      <button onclick="exportData()" title="Экспорт данных">💾</button>
-      <button onclick="document.getElementById('importFile').click()" title="Импорт данных">📂</button>
-      <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+      <button onclick="exportData()" title="Копировать данные">💾</button>
+      <button onclick="openImportModal()" title="Вставить данные">📂</button>
       <button onclick="addToDesktop()" title="Создать ярлык">📱</button>
       <button onclick="openHelpModal()" title="Справка">❓</button>
     </div>
     <button onclick="openTaskModal()">+ Задача</button>
   </div>
 
-  <div class="container">
-    <div id="swipeArea">
-      <div class="date-display" id="dateDisplay" onclick="openCalendar()">Загрузка...</div>
+  <div class="container" id="mainContainer">
+    <div class="date-display" onclick="openCalendar()">
+      <span id="dateText">Загрузка...</span>
+      <span id="todayBadge" class="today-badge"></span>
+    </div>
 
-      <div class="clock-wrapper">
-        <canvas id="clockCanvas" width="300" height="300"></canvas>
-        <div class="clock-info">
-          <div class="time-display" id="currentTime">00:00</div>
-          <div class="task-display" id="currentTask">Ожидание...</div>
-        </div>
+    <!-- Свайп работает только внутри этого блока -->
+    <div class="clock-wrapper" id="clockWrapper">
+      <canvas id="clockCanvas" width="300" height="300"></canvas>
+      <div class="clock-info">
+        <div class="time-display" id="currentTime">00:00</div>
+        <div class="task-display" id="currentTask">Ожидание...</div>
       </div>
+    </div>
 
-      <div class="panels">
-        <div class="panel" id="panel-general"><h2>Общий режим</h2><div class="task-list"></div></div>
-        <div class="panel" id="panel-day"><h2>План на день</h2><div class="task-list"></div></div>
-        <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
-      </div>
+    <div class="panels">
+      <div class="panel" id="panel-general"><h2>Общий режим</h2><div class="task-list"></div></div>
+      <div class="panel" id="panel-day"><h2>План на день</h2><div class="task-list"></div></div>
+      <div class="panel" id="panel-week"><h2>Задачи на неделю</h2><div class="task-list"></div></div>
     </div>
   </div>
 
-  <!-- Модальное окно календаря -->
+  <!-- Модалка календаря -->
   <div class="modal-overlay" id="calModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="cal-header">
@@ -199,7 +174,7 @@
     </div>
   </div>
 
-  <!-- Модальное окно задач -->
+  <!-- Модалка задач -->
   <div class="modal-overlay" id="taskModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <h3 id="modalTitle">Новая задача</h3>
@@ -238,17 +213,32 @@
     </div>
   </div>
 
-  <!-- Модальное окно справки -->
+  <!-- Модалка импорта -->
+  <div class="modal-overlay" id="importModal" onclick="closeModals()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>Вставить данные</h3>
+      <p style="font-size: 0.8rem; color: var(--muted); margin-top:0;">Вставьте скопированный текст ниже:</p>
+      <div class="form-group">
+        <textarea id="importTextarea" rows="6" placeholder='{"general": [], ...}'></textarea>
+      </div>
+      <div class="modal-actions">
+        <button onclick="closeModals()">Отмена</button>
+        <button onclick="processImport()" style="background: var(--primary); color: white;">Обновить данные</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка справки -->
   <div class="modal-overlay" id="helpModal" onclick="closeModals()">
     <div class="modal" onclick="event.stopPropagation()">
       <h3>О приложении</h3>
       <div class="help-content">
-        <p><b>TimeManager</b> — это ваш автономный планировщик задач, который хранит данные прямо на вашем устройстве.</p>
+        <p><b>TimeManager</b> — автономный планер с поддержкой офлайн-режима.</p>
         <ul>
-          <li><b>Навигация:</b> Свайпайте влево или вправо, чтобы переключаться между днями.</li>
-          <li><b>Календарь:</b> Нажмите на дату сверху, чтобы открыть полный календарь.</li>
-          <li><b>Импорт/Экспорт:</b> Ваши данные никуда не отправляются. Используйте кнопки 💾 (сохранить) и 📂 (загрузить), чтобы перенести расписание на другое устройство в виде файла.</li>
-          <li><b>Ярлык (PWA):</b> Нажмите на кнопку 📱, чтобы узнать, как добавить приложение на главный экран смартфона для удобного доступа.</li>
+          <li><b>Смена дней:</b> Свайпайте влево или вправо <u>прямо по часам (диаграмме)</u>, чтобы избежать ложных срабатываний при прокрутке списков.</li>
+          <li><b>Календарь:</b> Нажмите на дату сверху. Надпись "(Сегодня)" подскажет, где вы находитесь.</li>
+          <li><b>Экспорт/Импорт:</b> Нажмите 💾 (Экспорт), чтобы скопировать ваши данные в буфер обмена. Чтобы перенести их на другое устройство, нажмите 📂 (Импорт) и вставьте текст в появившееся поле.</li>
+          <li><b>Ярлык:</b> Нажмите 📱 для запроса установки приложения на главный экран.</li>
         </ul>
       </div>
       <div class="modal-actions" style="justify-content: center;">
@@ -263,11 +253,18 @@
     let schedules = { general: [], weeks: {}, days: {} };
     let calDate = new Date();
 
-    // 1. Инициализация темы без зависимостей от Telegram
+    // Telegram инициализация
+    let tg = window.Telegram ? window.Telegram.WebApp : null;
+    if (tg && tg.initDataUnsafe) {
+      tg.ready();
+      tg.expand();
+    }
+
+    // Тема
     let manualTheme = localStorage.getItem('manual_theme_enabled') === 'true';
     if (!manualTheme) {
       const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+      root.setAttribute('data-theme', (tg && tg.colorScheme === 'dark') || prefersDark ? 'dark' : 'light');
     } else {
       root.setAttribute('data-theme', localStorage.getItem('planner_theme') || 'dark');
     }
@@ -276,122 +273,111 @@
       const currentTheme = root.getAttribute('data-theme');
       const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', newTheme);
-      
       localStorage.setItem('planner_theme', newTheme);
       localStorage.setItem('manual_theme_enabled', 'true');
       manualTheme = true;
       drawClock();
     });
 
-    // 2. Оптимизированное создание ярлыка (PWA Install Prompt)
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-    });
+    // Динамический манифест (делает сайт PWA)
+    const manifestJSON = {
+      "name": "TimeManager", "short_name": "TimeManager", "display": "standalone",
+      "background_color": "#121212", "theme_color": "#4a6fa5",
+      "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzRhNmZhNSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIvPjxwb2x5bGluZSBwb2ludHM9IjUwLDI1IDUwLDUwIDcwLDUwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+", "sizes": "512x512", "type": "image/svg+xml"}]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifestJSON)], {type: 'application/manifest+json'});
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+    document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
 
+    // Динамический Service Worker для ОФЛАЙН работы
+    const swCode = `
+      self.addEventListener('install', e => self.skipWaiting());
+      self.addEventListener('fetch', e => {
+        e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+      });
+    `;
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register(swUrl).catch(() => console.log('SW не поддерживается'));
+    }
+
+    // Установка ярлыка
     function addToDesktop() {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            console.log('Пользователь установил PWA');
-          }
-          deferredPrompt = null;
-        });
+      if (tg && tg.addToHomeScreen) {
+        // Нативный метод Telegram (работает на новых версиях)
+        tg.addToHomeScreen();
       } else {
-        alert("Чтобы добавить на главный экран:\n\nAndroid (Chrome): Меню (три точки) -> 'Добавить на гл. экран'.\n\niOS (Safari): Кнопка 'Поделиться' -> 'На экран Домой'.");
+        alert("Ваша система блокирует автоматическое добавление.\n\nДля установки нажмите 'Поделиться' (на iOS) или 'Меню' (на Android в браузере Chrome) -> 'На экран Домой'.\n\nПриложение полностью кэшировано и будет работать без интернета!");
       }
     }
 
-    // 3. Анимация свайпа и переключение дней
+    // Свайпы ТОЛЬКО ПО ЧАСАМ (Диаграмме)
     let touchStartX = 0;
     let touchEndX = 0;
+    const clockWrapper = document.getElementById('clockWrapper');
 
-    document.body.addEventListener('touchstart', e => {
+    clockWrapper.addEventListener('touchstart', e => {
       touchStartX = e.changedTouches[0].screenX;
     });
 
-    document.body.addEventListener('touchend', e => {
+    clockWrapper.addEventListener('touchend', e => {
       touchEndX = e.changedTouches[0].screenX;
       handleSwipe();
     });
 
     function handleSwipe() {
       const swipeDist = touchEndX - touchStartX;
-      if (swipeDist > 70) {
-        // Свайп вправо - предыдущий день
+      if (swipeDist > 60) {
         animateSwipe('right', () => {
-          currentDate.setDate(currentDate.getDate() - 1);
-          updateUI();
+          currentDate.setDate(currentDate.getDate() - 1); updateUI();
         });
-      } else if (swipeDist < -70) {
-        // Свайп влево - следующий день
+      } else if (swipeDist < -60) {
         animateSwipe('left', () => {
-          currentDate.setDate(currentDate.getDate() + 1);
-          updateUI();
+          currentDate.setDate(currentDate.getDate() + 1); updateUI();
         });
       }
     }
 
     function animateSwipe(direction, callback) {
-      const swipeArea = document.getElementById('swipeArea');
-      
-      // Анимация ухода
-      swipeArea.style.transform = direction === 'left' ? 'translateX(-50px)' : 'translateX(50px)';
-      swipeArea.style.opacity = '0';
+      clockWrapper.style.transform = direction === 'left' ? 'translateX(-30px)' : 'translateX(30px)';
+      clockWrapper.style.opacity = '0';
       
       setTimeout(() => {
-        callback(); // Обновляем данные
-        
-        // Подготовка к появлению с противоположной стороны
-        swipeArea.style.transition = 'none';
-        swipeArea.style.transform = direction === 'left' ? 'translateX(50px)' : 'translateX(-50px)';
-        
-        // Форсируем перерисовку кадра
-        void swipeArea.offsetWidth;
-        
-        // Анимация появления
-        swipeArea.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
-        swipeArea.style.transform = 'translateX(0)';
-        swipeArea.style.opacity = '1';
-      }, 200); // 200ms совпадает со временем transition
+        callback();
+        clockWrapper.style.transition = 'none';
+        clockWrapper.style.transform = direction === 'left' ? 'translateX(30px)' : 'translateX(-30px)';
+        void clockWrapper.offsetWidth;
+        clockWrapper.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+        clockWrapper.style.transform = 'translateX(0)';
+        clockWrapper.style.opacity = '1';
+      }, 150);
     }
 
-    // 4. Локальное хранение (без серверов)
-    function saveToMemory() {
-      localStorage.setItem('planner_data', JSON.stringify(schedules));
-    }
-
+    // Сохранение и загрузка (Локал)
+    function saveToMemory() { localStorage.setItem('planner_data', JSON.stringify(schedules)); }
     function loadFromMemory() {
       const localData = localStorage.getItem('planner_data');
-      if (localData) {
-        schedules = migrateData(JSON.parse(localData));
-      }
+      if (localData) { schedules = migrateData(JSON.parse(localData)); }
       updateUI();
     }
 
-    // 5. Вспомогательные функции парсинга
+    // Миграция и Парсинг
     function migrateData(rawData) {
       if (!rawData) return { general: [], weeks: {}, days: {} };
-      
       if (rawData.general && rawData.weeks && rawData.days) {
         rawData.general.forEach(t => t.type = 'general');
         Object.values(rawData.weeks).forEach(arr => arr.forEach(t => t.type = 'week'));
         Object.values(rawData.days).forEach(arr => arr.forEach(t => t.type = 'day'));
         return rawData;
       }
-
       let newSchedules = { general: [], weeks: {}, days: {} };
       for (let key in rawData) {
         if (Array.isArray(rawData[key])) {
           rawData[key].forEach(t => {
-            if (t.type === 'general') {
-              t.type = 'general';
-              newSchedules.general.push(t);
-            } else if (t.type === 'week') {
-              t.type = 'week';
-              let wKey = getWeekKey(new Date(key));
+            if (t.type === 'general') { t.type = 'general'; newSchedules.general.push(t); }
+            else if (t.type === 'week') {
+              t.type = 'week'; let wKey = getWeekKey(new Date(key));
               if(!newSchedules.weeks[wKey]) newSchedules.weeks[wKey] = [];
               newSchedules.weeks[wKey].push(t);
             } else {
@@ -405,164 +391,119 @@
       return newSchedules;
     }
 
-    function formatDateKey(date) {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    }
-
+    function formatDateKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
+    
     function getWeekKey(dateObj) {
-      let d = new Date(dateObj);
-      let day = d.getDay();
+      let d = new Date(dateObj); let day = d.getDay();
       let diff = d.getDate() - day + (day == 0 ? -6 : 1);
-      d.setDate(diff);
-      return formatDateKey(d);
+      d.setDate(diff); return formatDateKey(d);
     }
 
     function getTasksForDate(date) {
-      const dateKey = formatDateKey(date);
-      const weekKey = getWeekKey(date);
+      const dateKey = formatDateKey(date); const weekKey = getWeekKey(date);
       let tasks = [];
-
       if (schedules.general) tasks = tasks.concat(schedules.general);
       if (schedules.weeks[weekKey]) tasks = tasks.concat(schedules.weeks[weekKey]);
       if (schedules.days[dateKey]) tasks = tasks.concat(schedules.days[dateKey]);
-
       return tasks;
     }
 
-    // 6. Улучшенный Импорт и Экспорт
-    function exportData() {
-      try {
-        const dataStr = JSON.stringify(schedules, null, 2);
-        const blob = new Blob([dataStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url; 
-        link.download = `TimeManager_Backup_${formatDateKey(new Date())}.json`;
-        document.body.appendChild(link);
-        link.click(); 
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        alert("Ошибка при экспорте данных.");
+    // Экспорт в буфер обмена
+    async function exportData() {
+      const dataStr = JSON.stringify(schedules);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(dataStr);
+          if(tg && tg.showAlert) tg.showAlert("Данные успешно скопированы!");
+          else alert("Данные скопированы в буфер обмена!");
+        } catch (err) { alert("Ошибка доступа к буферу. Скопируйте вручную из поля импорта."); }
+      } else {
+        // Fallback если буфер недоступен
+        document.getElementById('importTextarea').value = dataStr;
+        openImportModal();
+        alert("Ваш браузер не поддерживает копирование. Скопируйте текст из открывшегося поля.");
       }
     }
 
-    function importData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          schedules = migrateData(parsed);
-          saveToMemory();
-          updateUI();
-          alert("Данные успешно импортированы!");
-        } catch (err) { 
-          alert('Ошибка чтения файла. Убедитесь, что это корректный файл резервной копии (.json).'); 
-        }
-      };
-      reader.readAsText(file);
-      event.target.value = ''; // Сброс инпута для возможности повторной загрузки того же файла
+    // Импорт из поля
+    function openImportModal() {
+      document.getElementById('importTextarea').value = '';
+      document.getElementById('importModal').style.display = 'flex';
     }
 
+    function processImport() {
+      const text = document.getElementById('importTextarea').value.trim();
+      if (!text) { alert("Поле пустое!"); return; }
+      try {
+        const parsed = JSON.parse(text);
+        schedules = migrateData(parsed);
+        saveToMemory(); updateUI(); closeModals();
+        if(tg && tg.showAlert) tg.showAlert("Данные успешно обновлены!");
+        else alert("Данные успешно обновлены!");
+      } catch (err) { alert("Ошибка! Неверный формат данных."); }
+    }
+
+    // Календарь
     function buildConicGradient(tasks) {
       let segments = [];
       tasks.forEach(t => {
-        if (t.end < t.start) {
-          segments.push({ start: t.start, end: 24, color: t.color });
-          segments.push({ start: 0, end: t.end, color: t.color });
-        } else {
-          segments.push({ start: t.start, end: t.end, color: t.color });
-        }
+        if (t.end < t.start) { segments.push({ start: t.start, end: 24, color: t.color }); segments.push({ start: 0, end: t.end, color: t.color }); }
+        else { segments.push({ start: t.start, end: t.end, color: t.color }); }
       });
       segments.sort((a,b) => a.start - b.start);
-
-      let str = "";
-      let currentAngle = 0;
-
+      let str = ""; let currentAngle = 0;
       segments.forEach((seg, index) => {
-        const startDeg = (seg.start / 24) * 360;
-        const endDeg = (seg.end / 24) * 360;
-
-        if (startDeg > currentAngle) {
-          str += `transparent ${currentAngle}deg ${startDeg}deg, `;
-        }
+        const startDeg = (seg.start / 24) * 360; const endDeg = (seg.end / 24) * 360;
+        if (startDeg > currentAngle) { str += `transparent ${currentAngle}deg ${startDeg}deg, `; }
         str += `${seg.color} ${startDeg}deg ${endDeg}deg${index === segments.length - 1 && endDeg === 360 ? '' : ', '}`;
         currentAngle = endDeg;
       });
-
       if (currentAngle < 360) str += `transparent ${currentAngle}deg 360deg`;
       return str.replace(/,\s*$/, "");
     }
 
-    // 7. Календарь
-    function openCalendar() {
-      document.getElementById('calModal').style.display = 'flex';
-      renderCalendar();
-    }
-
-    function changeMonth(dir) {
-      calDate.setMonth(calDate.getMonth() + dir);
-      renderCalendar();
-    }
-
+    function openCalendar() { document.getElementById('calModal').style.display = 'flex'; renderCalendar(); }
+    function changeMonth(dir) { calDate.setMonth(calDate.getMonth() + dir); renderCalendar(); }
+    
     function renderCalendar() {
-      const grid = document.getElementById('calGrid');
-      grid.innerHTML = '';
+      const grid = document.getElementById('calGrid'); grid.innerHTML = '';
       const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
       document.getElementById('calMonthYear').textContent = `${monthNames[calDate.getMonth()]} ${calDate.getFullYear()}`;
 
       ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].forEach(d => {
-        const el = document.createElement('div');
-        el.className = 'cal-day-name'; el.textContent = d; grid.appendChild(el);
+        const el = document.createElement('div'); el.className = 'cal-day-name'; el.textContent = d; grid.appendChild(el);
       });
 
       const firstDay = new Date(calDate.getFullYear(), calDate.getMonth(), 1);
       const lastDay = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0);
-      let startOffset = firstDay.getDay() - 1;
-      if (startOffset === -1) startOffset = 6;
+      let startOffset = firstDay.getDay() - 1; if (startOffset === -1) startOffset = 6;
 
-      for (let i = 0; i < startOffset; i++) {
-        const el = document.createElement('div'); el.className = 'cal-cell empty'; grid.appendChild(el);
-      }
+      for (let i = 0; i < startOffset; i++) { const el = document.createElement('div'); el.className = 'cal-cell empty'; grid.appendChild(el); }
 
       for (let i = 1; i <= lastDay.getDate(); i++) {
-        const el = document.createElement('div');
-        el.className = 'cal-cell';
+        const el = document.createElement('div'); el.className = 'cal-cell';
+        const numSpan = document.createElement('span'); numSpan.className = 'cal-num'; numSpan.textContent = i;
 
-        const numSpan = document.createElement('span');
-        numSpan.className = 'cal-num';
-        numSpan.textContent = i;
-
-        if (i === currentDate.getDate() && calDate.getMonth() === currentDate.getMonth() && calDate.getFullYear() === currentDate.getFullYear()) {
-          el.classList.add('active');
-        }
+        if (i === currentDate.getDate() && calDate.getMonth() === currentDate.getMonth() && calDate.getFullYear() === currentDate.getFullYear()) { el.classList.add('active'); }
 
         const dayDate = new Date(calDate.getFullYear(), calDate.getMonth(), i);
         const dayTasks = getTasksForDate(dayDate);
-
         if (dayTasks.length > 0) {
-          const ring = document.createElement('div');
-          ring.className = 'cal-ring';
+          const ring = document.createElement('div'); ring.className = 'cal-ring';
           ring.style.background = `conic-gradient(${buildConicGradient(dayTasks)})`;
           el.appendChild(ring);
         }
 
         el.appendChild(numSpan);
-        el.onclick = () => {
-          currentDate = new Date(calDate.getFullYear(), calDate.getMonth(), i);
-          closeModals(); updateUI();
-        };
+        el.onclick = () => { currentDate = new Date(calDate.getFullYear(), calDate.getMonth(), i); closeModals(); updateUI(); };
         grid.appendChild(el);
       }
     }
 
-    // 8. Модальные окна и задачи
-    function openHelpModal() {
-      document.getElementById('helpModal').style.display = 'flex';
-    }
-
+    // Модалки
+    function openHelpModal() { document.getElementById('helpModal').style.display = 'flex'; }
+    function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); }
+    
     function deleteTaskById(id) {
       if(schedules.general) schedules.general = schedules.general.filter(t => t.id != id);
       for(let w in schedules.weeks) schedules.weeks[w] = schedules.weeks[w].filter(t => t.id != id);
@@ -570,24 +511,19 @@
     }
 
     function openTaskModal(taskId = null) {
-      const modal = document.getElementById('taskModal');
-      const delBtn = document.getElementById('deleteBtn');
+      const modal = document.getElementById('taskModal'); const delBtn = document.getElementById('deleteBtn');
       const tasks = getTasksForDate(currentDate);
 
       if (taskId) {
         const task = tasks.find(t => t.id === taskId);
         document.getElementById('modalTitle').textContent = "Редактировать";
-        document.getElementById('taskId').value = task.id;
-        document.getElementById('taskTitle').value = task.title;
-        document.getElementById('taskStart').value = decToTime(task.start);
-        document.getElementById('taskEnd').value = decToTime(task.end);
-        document.getElementById('taskColor').value = task.color;
-        document.getElementById('taskType').value = task.type;
+        document.getElementById('taskId').value = task.id; document.getElementById('taskTitle').value = task.title;
+        document.getElementById('taskStart').value = decToTime(task.start); document.getElementById('taskEnd').value = decToTime(task.end);
+        document.getElementById('taskColor').value = task.color; document.getElementById('taskType').value = task.type;
         delBtn.style.display = 'block';
       } else {
         document.getElementById('modalTitle').textContent = "Новая задача";
-        document.getElementById('taskId').value = '';
-        document.getElementById('taskTitle').value = '';
+        document.getElementById('taskId').value = ''; document.getElementById('taskTitle').value = '';
         delBtn.style.display = 'none';
       }
       modal.style.display = 'flex';
@@ -596,125 +532,60 @@
     function saveTask() {
       const id = document.getElementById('taskId').value || Date.now().toString();
       const title = document.getElementById('taskTitle').value || "Без названия";
-      const start = timeToDec(document.getElementById('taskStart').value);
-      const end = timeToDec(document.getElementById('taskEnd').value);
-      const color = document.getElementById('taskColor').value;
-      const type = document.getElementById('taskType').value;
+      const start = timeToDec(document.getElementById('taskStart').value); const end = timeToDec(document.getElementById('taskEnd').value);
+      const color = document.getElementById('taskColor').value; const type = document.getElementById('taskType').value;
       const newTask = { id, title, start, end, color, type };
-
       deleteTaskById(id);
 
-      const dateKey = formatDateKey(currentDate);
-      const weekKey = getWeekKey(currentDate);
-
-      if (type === 'general') {
-        schedules.general.push(newTask);
-      } else if (type === 'week') {
-        if (!schedules.weeks[weekKey]) schedules.weeks[weekKey] = [];
-        schedules.weeks[weekKey].push(newTask);
-      } else {
-        if (!schedules.days[dateKey]) schedules.days[dateKey] = [];
-        schedules.days[dateKey].push(newTask);
-      }
-
+      const dateKey = formatDateKey(currentDate); const weekKey = getWeekKey(currentDate);
+      if (type === 'general') { schedules.general.push(newTask); }
+      else if (type === 'week') { if (!schedules.weeks[weekKey]) schedules.weeks[weekKey] = []; schedules.weeks[weekKey].push(newTask); }
+      else { if (!schedules.days[dateKey]) schedules.days[dateKey] = []; schedules.days[dateKey].push(newTask); }
       closeModals(); saveToMemory(); updateUI();
     }
 
-    function deleteTask() {
-      deleteTaskById(document.getElementById('taskId').value);
-      closeModals(); saveToMemory(); updateUI();
-    }
-
-    function closeModals() {
-      document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
-    }
-
-    function timeToDec(timeStr) {
-      const [h, m] = timeStr.split(':').map(Number); return h + (m / 60);
-    }
-
-    function decToTime(dec) {
-      const h = Math.floor(dec); const m = Math.round((dec - h) * 60);
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
-
+    function deleteTask() { deleteTaskById(document.getElementById('taskId').value); closeModals(); saveToMemory(); updateUI(); }
+    function timeToDec(timeStr) { const [h, m] = timeStr.split(':').map(Number); return h + (m / 60); }
+    function decToTime(dec) { const h = Math.floor(dec); const m = Math.round((dec - h) * 60); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }
     function getDurationText(start, end) {
       let dur = end - start; if (dur < 0) dur += 24;
       const h = Math.floor(dur); const m = Math.round((dur - h) * 60);
-      if (h > 0 && m > 0) return `${h}ч ${m}м`;
-      if (h > 0) return `${h}ч`; return `${m}м`;
+      if (h > 0 && m > 0) return `${h}ч ${m}м`; if (h > 0) return `${h}ч`; return `${m}м`;
     }
 
-    // 9. Отрисовка часов и UI
-    const canvas = document.getElementById('clockCanvas');
-    const ctx = canvas.getContext('2d');
+    // Часы
+    const canvas = document.getElementById('clockCanvas'); const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = 300 * dpr; canvas.height = 300 * dpr;
-    canvas.style.width = "300px"; canvas.style.height = "300px";
+    canvas.width = 300 * dpr; canvas.height = 300 * dpr; canvas.style.width = "300px"; canvas.style.height = "300px";
     ctx.scale(dpr, dpr);
-
-    const center = 150; 
-    const radius = center - 30;
+    const center = 150; const radius = center - 30;
 
     function drawClock() {
-      const tasks = getTasksForDate(currentDate);
-      ctx.clearRect(0, 0, 300, 300);
+      const tasks = getTasksForDate(currentDate); ctx.clearRect(0, 0, 300, 300);
       const offset = -Math.PI / 2;
-
-      ctx.beginPath();
-      ctx.arc(center, center, radius, 0, 2 * Math.PI);
-      ctx.lineWidth = 14;
-      ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#333" : "#aaaaaa";
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(center, center, radius, 0, 2 * Math.PI); ctx.lineWidth = 14;
+      ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#333" : "#aaaaaa"; ctx.stroke();
 
       tasks.forEach(task => {
         if (task.start === undefined || task.end === undefined) return;
-        const startAngle = (task.start / 24) * 2 * Math.PI + offset;
-        const endAngle = (task.end / 24) * 2 * Math.PI + offset;
+        const startAngle = (task.start / 24) * 2 * Math.PI + offset; const endAngle = (task.end / 24) * 2 * Math.PI + offset;
         if (isNaN(startAngle) || isNaN(endAngle)) return;
-
-        ctx.lineWidth = 14; 
-        ctx.strokeStyle = task.color || '#4a6fa5'; 
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        
-        if (task.end < task.start) {
-          ctx.arc(center, center, radius, startAngle, 2 * Math.PI + offset); ctx.stroke();
-          ctx.beginPath(); ctx.arc(center, center, radius, offset, endAngle); ctx.stroke();
-        } else {
-          ctx.arc(center, center, radius, startAngle, endAngle); ctx.stroke();
-        }
+        ctx.lineWidth = 14; ctx.strokeStyle = task.color || '#4a6fa5'; ctx.lineCap = "round"; ctx.beginPath();
+        if (task.end < task.start) { ctx.arc(center, center, radius, startAngle, 2 * Math.PI + offset); ctx.stroke(); ctx.beginPath(); ctx.arc(center, center, radius, offset, endAngle); ctx.stroke(); }
+        else { ctx.arc(center, center, radius, startAngle, endAngle); ctx.stroke(); }
       });
 
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-
       for (let i = 0; i < 24; i++) {
-        const angle = (i / 24) * 2 * Math.PI + offset;
-        const isMain = i % 6 === 0;
-        const isSub = i % 3 === 0 && !isMain;
-
-        const tickStart = radius - 11;
-        const tickEnd = isMain ? radius - 18 : radius - 15;
-
-        ctx.beginPath();
-        ctx.moveTo(center + Math.cos(angle) * tickStart, center + Math.sin(angle) * tickStart);
+        const angle = (i / 24) * 2 * Math.PI + offset; const isMain = i % 6 === 0; const isSub = i % 3 === 0 && !isMain;
+        const tickStart = radius - 11; const tickEnd = isMain ? radius - 18 : radius - 15;
+        ctx.beginPath(); ctx.moveTo(center + Math.cos(angle) * tickStart, center + Math.sin(angle) * tickStart);
         ctx.lineTo(center + Math.cos(angle) * tickEnd, center + Math.sin(angle) * tickEnd);
-        ctx.lineWidth = isMain ? 2 : 1;
-        ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#555" : "#ccc";
-        ctx.stroke();
-
+        ctx.lineWidth = isMain ? 2 : 1; ctx.strokeStyle = root.getAttribute('data-theme') === 'dark' ? "#555" : "#ccc"; ctx.stroke();
         if (isMain || isSub) {
-          const textDist = radius - 28;
-          const tx = center + Math.cos(angle) * textDist;
-          const ty = center + Math.sin(angle) * textDist;
-
-          if (isMain) {
-            ctx.font = "14px -apple-system, sans-serif";
-            ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#ccc" : "#555";
-          } else {
-            ctx.font = "12px -apple-system, sans-serif";
-            ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#888" : "#999";
-          }
+          const textDist = radius - 28; const tx = center + Math.cos(angle) * textDist; const ty = center + Math.sin(angle) * textDist;
+          if (isMain) { ctx.font = "14px -apple-system, sans-serif"; ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#ccc" : "#555"; }
+          else { ctx.font = "12px -apple-system, sans-serif"; ctx.fillStyle = root.getAttribute('data-theme') === 'dark' ? "#888" : "#999"; }
           ctx.fillText(i === 0 ? "0" : i.toString(), tx, ty);
         }
       }
@@ -722,69 +593,51 @@
 
     function renderLists() {
       const tasks = getTasksForDate(currentDate);
-      const panels = {
-        general: document.querySelector('#panel-general .task-list'),
-        day: document.querySelector('#panel-day .task-list'),
-        week: document.querySelector('#panel-week .task-list')
-      };
-
+      const panels = { general: document.querySelector('#panel-general .task-list'), day: document.querySelector('#panel-day .task-list'), week: document.querySelector('#panel-week .task-list') };
       Object.values(panels).forEach(p => p.innerHTML = '');
 
       tasks.sort((a, b) => (a.start || 0) - (b.start || 0)).forEach(task => {
-        const item = document.createElement('div');
-        item.className = 'task-item';
-        item.onclick = () => openTaskModal(task.id);
-        
-        const startStr = task.start !== undefined ? decToTime(task.start) : "--:--";
-        const endStr = task.end !== undefined ? decToTime(task.end) : "--:--";
+        const item = document.createElement('div'); item.className = 'task-item'; item.onclick = () => openTaskModal(task.id);
+        const startStr = task.start !== undefined ? decToTime(task.start) : "--:--"; const endStr = task.end !== undefined ? decToTime(task.end) : "--:--";
         const durStr = (task.start !== undefined && task.end !== undefined) ? `(${getDurationText(task.start, task.end)})` : "";
-        
-        item.innerHTML = `
-          <div class="color-dot" style="background-color: ${task.color || '#4a6fa5'}"></div>
-          <div class="task-time">
-            ${startStr} - ${endStr}
-            <span class="task-duration">${durStr}</span>
-          </div>
-          <div class="task-title">${task.title || 'Без названия'}</div>
-        `;
-        
-        const targetPanel = panels[task.type] ? panels[task.type] : panels['day'];
-        targetPanel.appendChild(item);
+        item.innerHTML = `<div class="color-dot" style="background-color: ${task.color || '#4a6fa5'}"></div>
+          <div class="task-time">${startStr} - ${endStr} <span class="task-duration">${durStr}</span></div>
+          <div class="task-title">${task.title || 'Без названия'}</div>`;
+        const targetPanel = panels[task.type] ? panels[task.type] : panels['day']; targetPanel.appendChild(item);
       });
     }
 
     function updateClockInfo() {
-      const now = new Date();
-      const h = now.getHours(); const m = now.getMinutes();
+      const now = new Date(); const h = now.getHours(); const m = now.getMinutes();
       document.getElementById('currentTime').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-
       const isToday = formatDateKey(now) === formatDateKey(currentDate);
       const taskDisplay = document.getElementById('currentTask');
+      if (!isToday) { taskDisplay.textContent = "Просмотр графика"; taskDisplay.style.color = "var(--muted)"; return; }
 
-      if (!isToday) {
-        taskDisplay.textContent = "Просмотр графика"; taskDisplay.style.color = "var(--muted)"; return;
-      }
-
-      const tasks = getTasksForDate(currentDate);
-      const currentDecimalTime = h + (m / 60);
+      const tasks = getTasksForDate(currentDate); const currentDecimalTime = h + (m / 60);
       let currentTaskObj = tasks.find(t => {
         if (t.end < t.start) return currentDecimalTime >= t.start || currentDecimalTime < t.end;
         return currentDecimalTime >= t.start && currentDecimalTime < t.end;
       });
 
-      if (currentTaskObj) {
-        taskDisplay.textContent = currentTaskObj.title; taskDisplay.style.color = currentTaskObj.color;
-      } else {
-        taskDisplay.textContent = "Свободное время"; taskDisplay.style.color = "var(--muted)";
-      }
+      if (currentTaskObj) { taskDisplay.textContent = currentTaskObj.title; taskDisplay.style.color = currentTaskObj.color; }
+      else { taskDisplay.textContent = "Свободное время"; taskDisplay.style.color = "var(--muted)"; }
     }
 
     function updateUI() {
-      document.getElementById('dateDisplay').textContent = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+      // Обновление даты и надписи (Сегодня)
+      document.getElementById('dateText').textContent = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+      
+      const today = new Date();
+      if (formatDateKey(today) === formatDateKey(currentDate)) {
+        document.getElementById('todayBadge').textContent = "(Сегодня)";
+      } else {
+        document.getElementById('todayBadge').textContent = "";
+      }
+
       drawClock(); renderLists(); updateClockInfo();
     }
 
-    // Запуск приложения
     loadFromMemory();
     setInterval(updateClockInfo, 10000);
 </script>
